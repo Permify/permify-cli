@@ -1,0 +1,2 @@
+-   configure
+    `permctl configure`

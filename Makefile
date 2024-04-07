@@ -9,8 +9,16 @@ help: ## Display this help screen
 
 .PHONY: build
 build: ## Build/compile the Permify service
-	go build -o ./permify-cli ./cmd/permify-cli
+	go build -o ./permctl ./cmd/permctl
+
+.PHONY: goreleaser
+goreleaser: ## Build goreleaser binaries
+	goreleaser release --snapshot --clean
 
 .PHONY: format
 format: ## Auto-format the code
 	gofumpt -l -w -extra .
+
+.PHONY: run
+run: ## Run cli
+	go run ./cmd/permctl/*

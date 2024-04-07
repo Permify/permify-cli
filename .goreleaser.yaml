@@ -1,0 +1,47 @@
+before:
+    hooks:
+        - go mod tidy
+
+builds:
+    - env:
+          - CGO_ENABLED=0
+      id: permctl
+      binary: permctl
+      goos:
+          - linux
+          - darwin
+          - windows
+      goarch:
+          - amd64
+          - arm64
+      dir: ./cmd/permctl
+      no_unique_dist_dir: false
+      ldflags:
+          - -s -w
+
+archives:
+    - format: tar.gz
+      id: permctl
+      builds:
+          - permctl
+      name_template: >-
+          permctl_
+          {{- title .Os }}_
+          {{- if eq .Arch "amd64" }}x86_64
+          {{- else if eq .Arch "386" }}i386
+          {{- else }}{{ .Arch }}{{ end }}
+          {{- if .Arm }}v{{ .Arm }}{{ end }}
+      format_overrides:
+          - goos: windows
+            format: zip
+
+checksum:
+    name_template: "checksums.txt"
+snapshot:
+    name_template: "{{ incpatch .Version }}-next"
+changelog:
+    sort: asc
+    filters:
+        exclude:
+            - "^docs:"
+            - "^test:"
