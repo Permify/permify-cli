@@ -97,12 +97,54 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
 
-	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
+	storedCreds, err := client.LoadCredentials()
 	if err != nil {
 		return err
 	}
 
+	defaultURL := config.CliConfig.PermifyURL
+	if defaultURL == "" {
+		defaultURL = storedCreds.Endpoint
+	}
+
+	url, err := tui.StringPrompt("enter permify url", "", defaultURL)
+	if err != nil {
+		return err
+	}
+
+	token, err := tui.StringPrompt("enter api token (optional)", "", storedCreds.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter client certificate path (optional)", "", storedCreds.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter client certificate key path (optional)", "", storedCreds.CertKey)
+	if err != nil {
+		return err
+	}
+
+	if (certPath == "") != (certKey == "") {
+		return fmt.Errorf("both certificate path and key must be provided or omitted")
+	}
+
+	storeErr := client.StoreCredentials(client.Credentials{
+		Endpoint: url,
+		Token:    token,
+		CertPath: certPath,
+		CertKey:  certKey,
+	})
+	if storeErr != nil {
+		logger.Log.Error(storeErr)
+	}
+
 	resp, err := client.New(url)
+	if err != nil {
+		return err
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,7 +159,7 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
