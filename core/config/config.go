@@ -27,6 +27,9 @@ type ProfileConfigs struct {
 type CoreConfig struct {
 	PermifyURL			 string  `yaml:"permify_url"`
 	Tenant 				 string  `yaml:"tenant"`
+	Token                string  `yaml:"token"`
+	CertPath             string  `yaml:"cert_path"`
+	KeyPath              string  `yaml:"key_path"`
 	SslEnabled           bool    `yaml:"-"`
 }
 

@@ -122,8 +122,28 @@ func runE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		logger.Log.Error(err)
 	}
+
+	token, err := tui.StringPrompt("enter active token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	keyPath, err := tui.StringPrompt("enter key path (optional)", "", config.CliConfig.KeyPath)
+	if err != nil {
+		return err
+	}
+
 	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.KeyPath = keyPath
+
 	err = config.Write()
 	if err != nil {
 		logger.Log.Error(err)
