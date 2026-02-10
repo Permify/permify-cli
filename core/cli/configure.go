@@ -97,12 +97,58 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
 
-	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
+	// Load any previously stored credentials to use as defaults
+	storedCreds, err := client.LoadCredentials()
+	if err != nil {
+		logger.Log.Debug("no stored credentials found", "error", err)
+		storedCreds = client.Credentials{}
+	}
+
+	defaultURL := config.CliConfig.PermifyURL
+	if defaultURL == "" {
+		defaultURL = storedCreds.Endpoint
+	}
+
+	url, err := tui.StringPrompt("enter permify url", "", defaultURL)
 	if err != nil {
 		return err
 	}
 
+	token, err := tui.StringPrompt("enter api token (optional, press enter to skip)", "", storedCreds.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter certificate path (optional, press enter to skip)", "", storedCreds.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter certificate key path (optional, press enter to skip)", "", storedCreds.CertKey)
+	if err != nil {
+		return err
+	}
+
+	// Validate that both cert path and key are provided together
+	if (certPath == "") != (certKey == "") {
+		return fmt.Errorf("both certificate path and certificate key must be provided together")
+	}
+
+	// Store credentials to ~/.permify/credentials
+	storeErr := client.StoreCredentials(client.Credentials{
+		Endpoint: url,
+		Token:    token,
+		CertPath: certPath,
+		CertKey:  certKey,
+	})
+	if storeErr != nil {
+		logger.Log.Error("failed to store credentials", "error", storeErr)
+	}
+
 	resp, err := client.New(url)
+	if err != nil {
+		return fmt.Errorf("failed to connect to permify: %w", err)
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,7 +163,7 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
