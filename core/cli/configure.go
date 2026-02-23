@@ -97,12 +97,35 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
 
-	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
+	url, err := tui.StringPrompt("enter permify url", "localhost:3478", config.CliConfig.PermifyURL)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt("enter token (optional, press enter to skip)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter cert path (optional, press enter to skip)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter cert key path (optional, press enter to skip)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
+
+	resp, err := client.New(config.CliConfig)
+	if err != nil {
+		logger.Log.Fatal("failed to connect to permify", "error", err)
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,12 +140,11 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
-	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
 	err = config.Write()
 	if err != nil {
