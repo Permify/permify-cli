@@ -101,6 +101,18 @@ func runE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
 
 	resp, err := client.New(url)
 
@@ -117,12 +129,15 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
 	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
 	config.CliConfig.Tenant = tenantIds[tenant]
 	err = config.Write()
 	if err != nil {
