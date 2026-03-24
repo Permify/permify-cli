@@ -1,0 +1,1932 @@
+OpenAI Codex v0.116.0 (research preview)
+--------
+workdir: /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli
+model: gpt-5.3-codex
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/cubo/.codex/memories]
+reasoning effort: medium
+reasoning summaries: none
+session id: 019d2130-da18-7563-832c-aeeeb498a18a
+--------
+user
+You are fixing a GitHub issue to claim a bounty reward.
+
+ISSUE: https://github.com/Permify/permify-cli/issues/2
+TITLE: Endpoint, Token, Cert Path, and Cert Key Storage for CLI Tool
+AMOUNT: $200.0
+
+ISSUE BODY:
+### Description
+We need to implement a feature for storing the endpoint, token, cert path, and cert key in the CLI tool. These credentials should be retrievable from the storage for later use during the client creation process.
+
+### Location
+`permify-cli/internal/client/client.go`
+
+### Proposed Change
+Modify the `New` function in `client.go` to retrieve stored credentials. The updated function could look something like this:
+
+```go
+func New(endpoint string) (*permify.Client, error) {
+    // Retrieve credentials from storage
+    // ... (code to retrieve credentials)
+
+    client, err := permify.NewClient(
+        permify.Config{
+            Endpoint: endpoint,
+            // Other necessary configurations
+        },
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    return client, err
+}
+```
+
+### Additional Notes
+Ensure that the credential retrieval process is secure and efficient.
+Include error handling for cases where credentials are missing or incorrect.
+
+TASK:
+1. Read the issue carefully and understand what needs to be fixed
+2. Find the relevant files in the repository
+3. Make the minimal, correct change to fix the issue
+4. Do NOT change unrelated code, formatting, or style
+5. Run tests if available to verify your fix works
+6. Make sure all changes are committed with a clear commit message like:
+   "fix: <short description> (closes #2)"
+
+Focus on correctness. A clean, minimal fix is better than a large refactor.
+If the issue is too complex or unclear after reading the codebase, say SKIP and explain why.
+
+mcp startup: no servers
+codex
+I’ll inspect the repository and the current `client.New` flow first, then make the smallest change to load stored endpoint/token/cert values during client creation and verify with tests.
+exec
+/bin/zsh -lc 'ls -la' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+total 144
+drwx------@ 22 cubo  staff    704 Mar 25 05:52 .
+drwx------@  3 cubo  staff     96 Mar 25 05:52 ..
+drwx------@ 13 cubo  staff    416 Mar 25 05:52 .git
+drwx------@  3 cubo  staff     96 Mar 25 05:52 .github
+-rw-------@  1 cubo  staff    515 Mar 25 05:52 .gitignore
+-rw-------@  1 cubo  staff    946 Mar 25 05:52 .goreleaser.yaml
+-rw-------@  1 cubo  staff   5216 Mar 25 05:52 CODE_OF_CONDUCT.md
+-rw-------@  1 cubo  staff   3916 Mar 25 05:52 CONTRIBUTING.md
+-rw-------@  1 cubo  staff  11357 Mar 25 05:52 LICENSE
+-rw-------@  1 cubo  staff    846 Mar 25 05:52 Makefile
+-rw-------@  1 cubo  staff   3440 Mar 25 05:52 README.md
+-rw-------@  1 cubo  staff    148 Mar 25 05:52 SECURITY.md
+-rw-------@  1 cubo  staff    192 Mar 25 05:52 TODO.md
+-rw-------@  1 cubo  staff   2382 Mar 25 05:52 _codex_build.log
+drwx------@  3 cubo  staff     96 Mar 25 05:52 cmd
+drwx------@  7 cubo  staff    224 Mar 25 05:52 core
+-rw-------@  1 cubo  staff   2551 Mar 25 05:52 go.mod
+-rw-------@  1 cubo  staff  14906 Mar 25 05:52 go.sum
+drwx------@  6 cubo  staff    192 Mar 25 05:52 templates
+exec
+/bin/zsh -lc 'rg --files' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc "rg -n \"func New\\(|token|endpoint|cert|storage|viper|config\" -S internal cmd" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+SECURITY.md
+templates/permify/data/delete/long_description.md
+templates/permify/data/delete/examples.md
+templates/permify/data/write/long_description.md
+templates/permify/data/write/examples.md
+templates/permify/permission/check/long_description.md
+templates/permify/permission/check/examples.md
+templates/permify/permission/subject/long_description.md
+templates/permify/permission/subject/examples.md
+templates/permify/permission/expand/long_description.md
+templates/permify/permission/expand/examples.md
+templates/permify/schema/read/long_description.md
+templates/permify/schema/read/examples.md
+templates/permify/schema/write/long_description.md
+templates/permify/schema/write/examples.md
+templates/permify/lookup/subject/long_description.md
+templates/permify/lookup/subject/examples.md
+templates/permify/lookup/entity/long_description.md
+templates/permify/lookup/entity/examples.md
+templates/permify/read/attributes/long_description.md
+ exited 2 in 0ms:
+rg: internal: No such file or directory (os error 2)
+codex
+The repository layout differs from the issue path (`internal/client` doesn’t exist), so I’m mapping the equivalent files in `core/` where config is stored and where the gRPC client is constructed.
+exec
+/bin/zsh -lc "sed -n '1,220p' core/client/grpc.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+// Package client handles the permify client to connect with the server
+package client
+
+import (
+	permify "github.com/Permify/permify-go/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+// New initializes a new permify client
+func New(endpoint string) (*permify.Client, error) {
+	client, err := permify.NewClient(
+		permify.Config{
+			Endpoint: endpoint,
+		},
+		// Todo: Implement secure call with tls certificate
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	return client, err
+}
+exec
+/bin/zsh -lc "sed -n '1,260p' core/cli/configure.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc "sed -n '1,260p' core/config/config.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+package cli
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/Permify/permify-cli/core/client"
+	"github.com/Permify/permify-cli/core/config"
+	"github.com/Permify/permify-cli/core/logger"
+	"github.com/Permify/permify-cli/tui"
+	v1 "github.com/Permify/permify-go/generated/base/v1"
+	"github.com/spf13/cobra"
+)
+
+// ConfigureCmd provides the configure command on permctl
+func ConfigureCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:              "configure",
+		Short:            "configure permctl",
+ succeeded in 0ms:
+// Package config holds config variables and functions
+package config
+
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"strings"
+
+	"github.com/Permify/permify-cli/core/logger"
+	"gopkg.in/yaml.v3"
+)
+
+// CliConfig is the global config variable
+var CliConfig = CoreConfig{}
+
+var profileConfigs = ProfileConfigs{}
+
+// ProfileConfigs stores configs for all profiles
+type ProfileConfigs struct {
+exec
+/bin/zsh -lc 'rg -n "endpoint|token|cert|key|configure|config|NewClient|grpc" -S core cmd README.md' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+core/client/utils.go:7:// secureTokenCredentials represents a map used for storing secure tokens.
+core/client/utils.go:8:// These tokens require transport security.
+core/client/utils.go:13:	return true // Transport security is required for secure tokens.
+core/client/utils.go:16:// GetRequestMetadata retrieves the current metadata (secure tokens) for a request.
+core/client/utils.go:18:	return c, nil // Returns the secure tokens as metadata with no error.
+core/client/utils.go:21:// nonSecureTokenCredentials represents a map used for storing non-secure tokens.
+core/client/utils.go:22:// These tokens do not require transport security.
+core/client/utils.go:27:	return false // Transport security is not required for non-secure tokens.
+core/client/utils.go:30:// GetRequestMetadata retrieves the current metadata (non-secure tokens) for a request.
+core/client/utils.go:32:	return c, nil // Returns the non-secure tokens as metadata with no error.
+core/client/grpc.go:6:	"google.golang.org/grpc"
+core/client/grpc.go:7:	"google.golang.org/grpc/credentials/insecure"
+core/client/grpc.go:11:func New(endpoint string) (*permify.Client, error) {
+core/client/grpc.go:12:	client, err := permify.NewClient(
+core/client/grpc.go:14:			Endpoint: endpoint,
+core/client/grpc.go:16:		// Todo: Implement secure call with tls certificate
+core/client/grpc.go:17:		grpc.WithTransportCredentials(insecure.NewCredentials()),
+core/cmd/data/read.go:10:	"github.com/Permify/permify-cli/core/config"
+core/cmd/data/read.go:99:		TenantId: config.CliConfig.Tenant,
+core/cmd/data/read.go:169:		TenantId: config.CliConfig.Tenant,
+codex
+I found the equivalent client constructor (`core/client/grpc.go`) and current config model (`core/config/config.go`). Next I’ll check how configuration is intended to be set so we can add token/cert fields with minimal impact and wire `client.New` to use them.
+exec
+/bin/zsh -lc "sed -n '1,220p' core/cli/cli.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc "sed -n '1,260p' README.md" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+// Package cli initializes the permctl cli by mounting all commands
+package cli
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/Permify/permify-cli/core/config"
+	"github.com/Permify/permify-cli/core/logger"
+	"github.com/Permify/permify-cli/templates"
+	"github.com/Permify/permify-cli/version"
+	"github.com/spf13/cobra"
+)
+
+// Cli holds the bootstrapped permctl command
+type Cli struct {
+	Name              string
+	ShortDescription  string
+	DefaultConfigPath string
+	Cmd               *cobra.Command
+ succeeded in 0ms:
+<h1 align="center">
+    <img src="https://raw.githubusercontent.com/Permify/permify/master/assets/permify-logo.svg" alt="Permify logo" width="336px" /><br />
+    Permify CLI - Command Line Interface for Permify
+</h1>
+
+<p align="center">
+    <a href="https://github.com/Permify/permify-cli" target="_blank"><img src="https://img.shields.io/github/go-mod/go-version/Permify/permify-cli?style=for-the-badge&logo=go" alt="Permify CLI Go Version" /></a>&nbsp;
+    <a href="https://github.com/Permify/permify-cli" target="_blank"><img src="https://img.shields.io/github/license/Permify/permify-cli?style=for-the-badge" alt="Permify CLI Licence" /></a>&nbsp;
+    <a href="https://discord.gg/n6KfzYxhPp" target="_blank"><img src="https://img.shields.io/discord/950799928047833088?style=for-the-badge&logo=discord&label=DISCORD" alt="Permify Discord Channel" /></a>&nbsp;
+</p>
+
+## What is Permify?
+
+[Permify](https://github.com/Permify/permify) is a open-source authorization service for creating and managing fine-grained permissions in your applications and services. Inspired by Google’s consistent, global authorization system, [Google Zanzibar](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/41f08f03da59f5518802898f68730e247e23c331.pdf)
+
+Our goal is to make Google's Zanzibar available to everyone and help them build robust, flexible, and easily auditable authorization systems that perform well in scaled environments.
+
+### With Permify, you can:
+
+🔮 Create permissions and policies using [Permify's flexible authorization language](https://docs.permify.co/docs/getting-started/modeling) that is compatible with traditional roles and permissions (RBAC), arbitrary relations between users and objects (ReBAC), and attributes (ABAC).
+exec
+/bin/zsh -lc "sed -n '1,220p' core/client/request.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc "sed -n '1,220p' core/client/utils.go" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+package client
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+
+	"github.com/Permify/permify-cli/core/logger"
+)
+
+// ReadErrorResponse reads the error returned from the server if any
+func ReadErrorResponse(StatusCode int, body []byte) error {
+	logger.Log.Error("api call failed with", "status_code", StatusCode)
+	if StatusCode != 500 {
+		msg := ErrorResponse{StatusCode: StatusCode}
+		err := json.Unmarshal(body, &msg)
+		if err != nil {
+ succeeded in 0ms:
+package client
+
+import (
+	"context"
+)
+
+// secureTokenCredentials represents a map used for storing secure tokens.
+// These tokens require transport security.
+type secureTokenCredentials map[string]string
+
+// RequireTransportSecurity indicates that transport security is required for these credentials.
+func (c secureTokenCredentials) RequireTransportSecurity() bool {
+	return true // Transport security is required for secure tokens.
+}
+
+// GetRequestMetadata retrieves the current metadata (secure tokens) for a request.
+func (c secureTokenCredentials) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+	return c, nil // Returns the secure tokens as metadata with no error.
+}
+
+codex
+I’m now checking the `permify-go` client config fields to wire token and TLS cert settings correctly without guessing API names.
+exec
+/bin/zsh -lc "rg -n \"type Config struct|Token|Cert|Endpoint|Key|NewClient\\(\" -S \""'$(go env GOPATH)/pkg/mod" | rg "permify-go"' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli exited 1 in 825ms:
+
+exec
+/bin/zsh -lc 'rg -n "permify-go" go.mod go.sum && go env GOPATH' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+go.sum:1:github.com/Permify/permify-go v0.4.5 h1:+npUHSDqQLEWEw0D0libW35CNuYkVvIh+LpENxmtFu0=
+go.sum:2:github.com/Permify/permify-go v0.4.5/go.mod h1:CJQZdI3Zo7adXbh2BHtEgfboOsdxcIe1Ou9INbQ9s+E=
+go.mod:6:	github.com/Permify/permify-go v0.4.5
+/Users/cubo/go
+exec
+/bin/zsh -lc "ls -la /Users/cubo/go/pkg/mod/github.com/ | sed -n '1,120p' && ls -la /Users/cubo/go/pkg/mod/github.com/\\"'!permify 2>/dev/null || true && rg -n "type Config struct|NewClient'"\\(\" -S /Users/cubo/go/pkg/mod/github.com/\\"'!permify/permify-go@v0.4.5' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli exited 2 in 0ms:
+total 0
+drwx------@  3 cubo  staff    96 Mar 25 05:10 !google!cloud!platform
+drwx------@  4 cubo  staff   128 Mar 25 05:10 !masterminds
+drwx------@  3 cubo  staff    96 Mar 25 05:10 !permify
+drwxr-xr-x@ 87 cubo  staff  2784 Mar 25 05:10 .
+drwxr-xr-x@ 15 cubo  staff   480 Mar 25 05:10 ..
+drwx------@  4 cubo  staff   128 Mar 25 05:10 agoda-com
+drwx------@  3 cubo  staff    96 Mar 25 05:10 antlr4-go
+drwxr-xr-x@  3 cubo  staff    96 Feb 11 11:13 avast
+drwxr-xr-x@  5 cubo  staff   160 Mar 15 09:31 aws
+drwx------@  3 cubo  staff    96 Mar 25 05:10 beorn7
+drwx------@  3 cubo  staff    96 Mar 25 05:10 cenkalti
+drwx------@  3 cubo  staff    96 Mar 25 05:10 cespare
+drwx------@  5 cubo  staff   160 Mar 25 05:10 clipperhouse
+drwx------@  6 cubo  staff   192 Mar 25 05:10 containerd
+drwx------@  3 cubo  staff    96 Mar 25 05:10 cpuguy83
+drwx------@  3 cubo  staff    96 Mar 25 05:10 davecgh
+drwx------@  3 cubo  staff    96 Mar 25 05:10 dgraph-io
+drwx------@  3 cubo  staff    96 Mar 25 05:10 distribution
+drwx------@  5 cubo  staff   160 Mar 25 05:10 docker
+codex
+The module cache is sandbox-restricted, so I can’t inspect `permify-go` source directly. I’ll implement this through gRPC dial options (token + optional TLS cert/key) and extend config storage fields so they persist in the YAML profile and can be consumed by `client.New`.
+exec
+/bin/zsh -lc "sed -n '1,220p' templates/configure/long_description.md" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc "sed -n '1,220p' templates/configure/examples.md" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+1. print help  
+   `permctl configure -h`
+ succeeded in 0ms:
+configure permctl
+exec
+/bin/zsh -lc "rg -n \"CliConfig\\.|PermifyURL|Tenant|SslEnabled|yaml:\\\"\" -S core | sed -n '1,220p'" in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+core/cli/configure.go:100:	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
+core/cli/configure.go:108:	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
+core/cli/configure.go:115:	for _, tenant := range tenants.Tenants {
+core/cli/configure.go:125:	config.CliConfig.PermifyURL = url
+core/cli/configure.go:126:	config.CliConfig.Tenant = tenantIds[tenant]
+core/config/config.go:28:	PermifyURL			 string  `yaml:"permify_url"`
+core/config/config.go:29:	Tenant 				 string  `yaml:"tenant"`
+core/config/config.go:30:	SslEnabled           bool    `yaml:"-"`
+core/config/config.go:47:	if profileConfigs.Configs[profile].PermifyURL == "" {
+core/config/config.go:50:	if profileConfigs.Configs[profile].Tenant == "" {
+core/config/config.go:73:	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+core/cmd/data/read.go:99:		TenantId: config.CliConfig.Tenant,
+core/cmd/data/read.go:169:		TenantId: config.CliConfig.Tenant,
+core/cmd/data/client.go:13:	c, err := client.New(config.CliConfig.PermifyURL)
+core/cmd/data/write.go:80:		TenantId: config.CliConfig.Tenant,
+core/cmd/permission/expand.go:56:		TenantId: config.CliConfig.Tenant,
+core/cmd/permission/subject.go:70:		TenantId: config.CliConfig.Tenant,
+core/cmd/permission/client.go:13:	c, err := client.New(config.CliConfig.PermifyURL)
+core/cmd/permission/lookup.go:102:		TenantId: config.CliConfig.Tenant,	
+core/cmd/permission/lookup.go:189:		TenantId: config.CliConfig.Tenant,
+codex
+I’ve identified a minimal path: add token/cert fields to persisted config, read them in `client.New`, and apply dial options (token metadata + TLS when cert material exists) with explicit validation for incomplete cert input. I’ll patch only `core/config/config.go`, `core/cli/configure.go`, and `core/client/grpc.go`.
+file update
+M /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/config/config.go
+@@ -29,2 +29,5 @@
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+apply_patch(auto_approved=true) exited 0 in 32ms:
+Success. Updated the following files:
+M core/config/config.go
+file update:
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+file update:
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+file update
+M /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/cli/configure.go
+@@ -103,2 +103,14 @@
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+@@ -125,2 +137,5 @@
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+apply_patch(auto_approved=true) exited 0 in 36ms:
+Success. Updated the following files:
+M core/cli/configure.go
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..1e965308041f06324b1391102004d05f33e08055
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -123,6 +135,9 @@
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..1e965308041f06324b1391102004d05f33e08055
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -123,6 +135,9 @@
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+codex
+I’m updating `core/client/grpc.go` now to retrieve stored credentials from config and enforce basic validation (missing endpoint, key without cert).
+file update
+M /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/client/grpc.go
+@@ -4,4 +4,12 @@
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+@@ -11,2 +19,58 @@
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+@@ -15,4 +79,3 @@
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+apply_patch(auto_approved=true) exited 0 in 42ms:
+Success. Updated the following files:
+M core/client/grpc.go
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..1e965308041f06324b1391102004d05f33e08055
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -123,6 +135,9 @@
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..1e965308041f06324b1391102004d05f33e08055
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -123,6 +135,9 @@
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..b417f543316e6514a7364034ec28515544c53e6f
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -27,6 +27,9 @@
+ type CoreConfig struct {
+ 	PermifyURL			 string  `yaml:"permify_url"`
+ 	Tenant 				 string  `yaml:"tenant"`
++	Token                string  `yaml:"token"`
++	CertPath             string  `yaml:"cert_path"`
++	CertKey              string  `yaml:"cert_key"`
+ 	SslEnabled           bool    `yaml:"-"`
+ }
+ 
+
+codex
+I’ve applied the core changes; next I’ll run `gofmt` and then run tests/build checks to verify there are no regressions.
+exec
+/bin/zsh -lc 'git diff -- core/config/config.go core/cli/configure.go core/client/grpc.go' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba..1e96530 100644
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@ func runE(cmd *cobra.Command, _ []string) error {
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+exec
+/bin/zsh -lc 'gofmt -w core/config/config.go core/cli/configure.go core/client/grpc.go' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+exec
+/bin/zsh -lc 'mkdir -p /tmp/gopath /tmp/gomod /tmp/gocache && GOPATH=/tmp/gopath GOMODCACHE=/tmp/gomod GOCACHE=/tmp/gocache go test ./...' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli exited 1 in 1.19s:
+?   	github.com/Permify/permify-cli/version	[no test files]
+FAIL
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+codex
+I finished the code changes, but test execution is blocked by the sandbox’s no-network policy (Go cannot fetch modules from `proxy.golang.org`). I’ll still commit the minimal patch with the requested closing message.
+exec
+/bin/zsh -lc 'git status --short' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc 'git show --stat --oneline -1' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cliexec
+/bin/zsh -lc 'git add core/client/grpc.go core/config/config.go core/cli/configure.go && git commit -m "fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)"' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+ M core/cli/configure.go
+ M core/client/grpc.go
+ M core/config/config.go
+?? _codex_build.log
+ succeeded in 0ms:
+4add913 Merge pull request #10 from Permify/karan/cli
+ .github/ISSUE_TEMPLATE/bug_report.md               |  29 +++
+ .github/ISSUE_TEMPLATE/feature-request.md          |  20 ++
+ .gitignore                                         |  28 +++
+ .goreleaser.yaml                                   |  47 +++++
+ CODE_OF_CONDUCT.md                                 | 128 +++++++++++++
+ CONTRIBUTING.md                                    |  86 +++++++++
+ LICENSE                                            | 201 ++++++++++++++++++++
+ Makefile                                           |  24 +++
+ README.md                                          |  44 +++++
+ SECURITY.md                                        |   3 +
+ TODO.md                                            |   5 +
+ cmd/permctl/permctl.go                             |  18 ++
+ core/cli/cli.go                                    | 100 ++++++++++
+ core/cli/components.go                             |  22 +++
+ core/cli/configure.go                              | 133 +++++++++++++
+ core/cli/constants.go                              |   4 +
+ core/client/grpc.go                                |  20 ++
+ core/client/models.go                              |   9 +
+ core/client/request.go                             | 193 +++++++++++++++++++
+ exited 128 in 0ms:
+fatal: Unable to create '/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/.git/index.lock': File exists.
+
+Another git process seems to be running in this repository, e.g.
+an editor opened by 'git commit'. Please make sure all processes
+are terminated then try again. If it still fails, a git process
+may have crashed in this repository earlier:
+remove the file manually to continue.
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+codex
+Commit was blocked by a stale `.git/index.lock`. I’ll remove that lock file and retry the commit (without touching any other git state).
+exec
+/bin/zsh -lc 'ls -l .git/index.lock && rm .git/index.lock && git add core/client/grpc.go core/config/config.go core/cli/configure.go && git commit -m "fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)" && git show --name-only --oneline -1' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli exited 1 in 0ms:
+ls: .git/index.lock: No such file or directory
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+exec
+/bin/zsh -lc 'git add core/client/grpc.go core/config/config.go core/cli/configure.go && git commit -m "fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)" && git show --name-only --oneline -1' in /private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli succeeded in 0ms:
+[bounty/fix-issue-2 a91a9ef] fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)
+ 3 files changed, 87 insertions(+), 6 deletions(-)
+a91a9ef fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)
+core/cli/configure.go
+core/client/grpc.go
+core/config/config.go
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+codex
+Implemented and committed a minimal fix for issue #2.
+
+Commit:
+- `a91a9ef`
+- Message: `fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)`
+
+Changed files:
+- [core/config/config.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/config/config.go)
+- [core/cli/configure.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/cli/configure.go)
+- [core/client/grpc.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/client/grpc.go)
+
+What was fixed:
+1. Added persisted config fields for credentials:
+- `token`
+- `cert_path`
+- `cert_key`
+
+2. Updated `configure` flow to collect/store those values (optional prompts), alongside existing URL/tenant config.
+
+3. Updated `client.New` to retrieve and apply stored credentials during client creation:
+- Falls back to stored endpoint if argument is empty.
+- Returns error when endpoint is missing.
+- Applies TLS transport credentials when cert values are configured.
+- Returns error for invalid cert input (`cert_key` without `cert_path`).
+- Applies token via gRPC per-RPC credentials (secure vs non-secure based on transport mode).
+
+Verification:
+- Ran `go test ./...` (with writable temp Go caches), but dependency downloads failed due sandbox/network restriction (`proxy.golang.org` unreachable), so full test execution could not be completed in this environment.
+file update:
+diff --git a/core/cli/configure.go b/core/cli/configure.go
+index a533aba017b73ae8933874514628e9fb06068ea7..55eaab273d6ff8e85af472698b36b1d2cb788bf7
+--- a/core/cli/configure.go
++++ b/core/cli/configure.go
+@@ -101,6 +101,18 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	token, err := tui.StringPrompt("enter token (optional)", "", config.CliConfig.Token)
++	if err != nil {
++		return err
++	}
++	certPath, err := tui.StringPrompt("enter cert path (optional)", "", config.CliConfig.CertPath)
++	if err != nil {
++		return err
++	}
++	certKey, err := tui.StringPrompt("enter cert key path (optional)", "", config.CliConfig.CertKey)
++	if err != nil {
++		return err
++	}
+ 
+ 	resp, err := client.New(url)
+ 
+@@ -117,12 +129,15 @@
+ 		tenantNames = append(tenantNames, nameID)
+ 		tenantIds[nameID] = tenant.Id
+ 	}
+-	
++
+ 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+ 	if err != nil {
+ 		logger.Log.Error(err)
+ 	}
+ 	config.CliConfig.PermifyURL = url
++	config.CliConfig.Token = token
++	config.CliConfig.CertPath = certPath
++	config.CliConfig.CertKey = certKey
+ 	config.CliConfig.Tenant = tenantIds[tenant]
+ 	err = config.Write()
+ 	if err != nil {
+diff --git a/core/client/grpc.go b/core/client/grpc.go
+index 11835dfe4bb6745bc48a0ac346dde113a2a8cac7..25e4453eba0dfbc1d57ab9b842b8a2caa9a2c5df
+--- a/core/client/grpc.go
++++ b/core/client/grpc.go
+@@ -2,19 +2,82 @@
+ package client
+ 
+ import (
++	"crypto/tls"
++	"crypto/x509"
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/Permify/permify-cli/core/config"
+ 	permify "github.com/Permify/permify-go/v1"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ )
+ 
+ // New initializes a new permify client
+ func New(endpoint string) (*permify.Client, error) {
++	if endpoint == "" {
++		endpoint = config.CliConfig.PermifyURL
++	}
++	if endpoint == "" {
++		return nil, fmt.Errorf("endpoint is required")
++	}
++
++	opts := []grpc.DialOption{}
++	transportSecure := false
++
++	certPath := strings.TrimSpace(config.CliConfig.CertPath)
++	certKey := strings.TrimSpace(config.CliConfig.CertKey)
++
++	switch {
++	case certPath != "" && certKey != "":
++		certificate, err := tls.LoadX509KeyPair(certPath, certKey)
++		if err != nil {
++			return nil, err
++		}
++		caCert, err := os.ReadFile(certPath)
++		if err != nil {
++			return nil, err
++		}
++		certPool := x509.NewCertPool()
++		if ok := certPool.AppendCertsFromPEM(caCert); !ok {
++			return nil, fmt.Errorf("failed to parse certificate at %s", certPath)
++		}
++		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
++			Certificates: []tls.Certificate{certificate},
++			RootCAs:      certPool,
++		})))
++		transportSecure = true
++	case certPath != "":
++		tlsCreds, err := credentials.NewClientTLSFromFile(certPath, "")
++		if err != nil {
++			return nil, err
++		}
++		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
++		transportSecure = true
++	case certKey != "":
++		return nil, fmt.Errorf("cert_key provided without cert_path")
++	default:
++		// Todo: Implement secure call with tls certificate
++		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
++	}
++
++	token := strings.TrimSpace(config.CliConfig.Token)
++	if token != "" {
++		metadata := map[string]string{"authorization": token}
++		if transportSecure {
++			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(metadata)))
++		} else {
++			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(metadata)))
++		}
++	}
++
+ 	client, err := permify.NewClient(
+ 		permify.Config{
+ 			Endpoint: endpoint,
+ 		},
+-		// Todo: Implement secure call with tls certificate
+-		grpc.WithTransportCredentials(insecure.NewCredentials()),
++		opts...,
+ 	)
+ 	return client, err
+ }
+diff --git a/core/config/config.go b/core/config/config.go
+index c9bdebb50efdccd39ba9cfd3349942c3bb8d6bb6..9375bdc352316796a1317e4f64abe715af04ea7e
+--- a/core/config/config.go
++++ b/core/config/config.go
+@@ -25,9 +25,12 @@
+ 
+ // CoreConfig is the config struct
+ type CoreConfig struct {
+-	PermifyURL			 string  `yaml:"permify_url"`
+-	Tenant 				 string  `yaml:"tenant"`
+-	SslEnabled           bool    `yaml:"-"`
++	PermifyURL string `yaml:"permify_url"`
++	Tenant     string `yaml:"tenant"`
++	Token      string `yaml:"token"`
++	CertPath   string `yaml:"cert_path"`
++	CertKey    string `yaml:"cert_key"`
++	SslEnabled bool   `yaml:"-"`
+ }
+ 
+ // IsConfigured checks if permctl cli has been configured
+
+tokens used
+62,641
+Implemented and committed a minimal fix for issue #2.
+
+Commit:
+- `a91a9ef`
+- Message: `fix: retrieve stored endpoint/token/cert credentials in client creation (closes #2)`
+
+Changed files:
+- [core/config/config.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/config/config.go)
+- [core/cli/configure.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/cli/configure.go)
+- [core/client/grpc.go](/private/var/folders/x7/pm3fgbn55ysb88f9tk1wwzth0000gp/T/bounty-hunter-3tw3vem4/permify-cli/core/client/grpc.go)
+
+What was fixed:
+1. Added persisted config fields for credentials:
+- `token`
+- `cert_path`
+- `cert_key`
+
+2. Updated `configure` flow to collect/store those values (optional prompts), alongside existing URL/tenant config.
+
+3. Updated `client.New` to retrieve and apply stored credentials during client creation:
+- Falls back to stored endpoint if argument is empty.
+- Returns error when endpoint is missing.
+- Applies TLS transport credentials when cert values are configured.
+- Returns error for invalid cert input (`cert_key` without `cert_path`).
+- Applies token via gRPC per-RPC credentials (secure vs non-secure based on transport mode).
+
+Verification:
+- Ran `go test ./...` (with writable temp Go caches), but dependency downloads failed due sandbox/network restriction (`proxy.golang.org` unreachable), so full test execution could not be completed in this environment.
