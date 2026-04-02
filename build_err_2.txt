@@ -1,0 +1,23 @@
+﻿go : # github.com/Permif
+y/permify-cli/core/clien
+t
+At line:1 char:1
++ go build ./... 2>&1 | 
+Out-File -Encoding utf8 
+build_err_2.txt
++ ~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : (# github.com/Pe.   
+ ..cli/core/client:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+core\client\grpc.go:31:4
+: unknown field Token 
+in struct literal of 
+type 
+permifygotest.Config

@@ -1,0 +1,28 @@
+﻿### Description
+We need to implement a feature for storing the endpoint, token, cert path, and cert key in the CLI tool. These credentials should be retrievable from the storage for later use during the client creation process.
+
+### Location
+`permify-cli/internal/client/client.go`
+
+### Proposed Change
+Modify the `New` function in `client.go` to retrieve stored credentials. The updated function could look something like this:
+
+```go
+func New(endpoint string) (*permify.Client, error) {
+    // Retrieve credentials from storage
+    // ... (code to retrieve credentials)
+
+    client, err := permify.NewClient(
+        permify.Config{
+            Endpoint: endpoint,
+            // Other necessary configurations
+        },
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    return client, err
+}
+```
+
+### Additional Notes
+Ensure that the credential retrieval process is secure and efficient.
+Include error handling for cases where credentials are missing or incorrect.

@@ -102,6 +102,26 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	token, err := tui.StringPrompt("enter token", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter cert path", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter cert key", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
+
 	resp, err := client.New(url)
 
 	// Todo: Implement pagination

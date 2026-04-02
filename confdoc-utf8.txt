@@ -1,0 +1,8 @@
+﻿package permifygotest // import "github.com/Permify/permify-go/v1"
+
+type Config struct {
+	Endpoint string
+	Cert     byte
+}
+    Config - Permify client configuration
+
