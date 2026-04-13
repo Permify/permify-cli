@@ -122,8 +122,26 @@ func runE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		logger.Log.Error(err)
 	}
+		token, err := tui.StringPrompt("enter token (leave empty to skip)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter cert path (leave empty to skip)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter cert key path (leave empty to skip)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
 	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
 	err = config.Write()
 	if err != nil {
 		logger.Log.Error(err)
