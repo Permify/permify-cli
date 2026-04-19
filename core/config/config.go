@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/Permify/permify-cli/core/logger"
@@ -25,9 +26,31 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL  string `yaml:"permify_url"`
+	Tenant      string `yaml:"tenant"`
+	Token       string `yaml:"token,omitempty"`
+	CertPath    string `yaml:"cert_path,omitempty"`
+	CertKeyPath string `yaml:"cert_key_path,omitempty"`
+	SslEnabled  bool   `yaml:"-"`
+}
+
+func anyProfileStoresToken(configs map[string]CoreConfig) bool {
+	for _, c := range configs {
+		if strings.TrimSpace(c.Token) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func tightenConfigFilePermissions(path string, configs map[string]CoreConfig) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if anyProfileStoresToken(configs) {
+		return os.Chmod(path, 0o600)
+	}
+	return os.Chmod(path, 0o644)
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -84,8 +107,10 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
-	return err
+	if err := os.WriteFile(file, newConfigDataByte, fs.FileMode(0o644)); err != nil {
+		return err
+	}
+	return tightenConfigFilePermissions(file, profileConfigs.Configs)
 }
 
 // Write the config file
@@ -100,6 +125,8 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
-	return err
+	if err := os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0o644)); err != nil {
+		return err
+	}
+	return tightenConfigFilePermissions(profileConfigs.File, profileConfigs.Configs)
 }
