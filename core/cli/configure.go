@@ -102,12 +102,48 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt(
+		"Bearer token (optional, leave empty if none)",
+		"",
+		config.CliConfig.Token,
+	)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt(
+		"TLS client certificate path (optional, PEM)",
+		"",
+		config.CliConfig.CertPath,
+	)
+	if err != nil {
+		return err
+	}
+
+	certKeyPath, err := tui.StringPrompt(
+		"TLS client private key path (optional, PEM)",
+		"",
+		config.CliConfig.CertKeyPath,
+	)
+	if err != nil {
+		return err
+	}
+
+	conn := client.Params{
+		Endpoint:    url,
+		Token:       token,
+		CertPath:    certPath,
+		CertKeyPath: certKeyPath,
+	}
+	resp, err := client.New(conn)
+	if err != nil {
+		return fmt.Errorf("connect to permify: %w", err)
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
 	if err != nil {
-		logger.Log.Fatal(err)
+		return err
 	}
 
 	tenantNames := []string{}
@@ -117,16 +153,21 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+	if len(tenantNames) == 0 {
+		return fmt.Errorf("no tenants returned from server; check endpoint and access")
+	}
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
-		logger.Log.Error(err)
+		return err
 	}
 	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
-	err = config.Write()
-	if err != nil {
-		logger.Log.Error(err)
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKeyPath = certKeyPath
+	if err := config.Write(); err != nil {
+		return err
 	}
 	logger.Log.Info("successfully configured ", "config file", configFile)
 	return nil
