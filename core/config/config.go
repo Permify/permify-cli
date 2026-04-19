@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -43,14 +44,57 @@ func anyProfileStoresToken(configs map[string]CoreConfig) bool {
 	return false
 }
 
-func tightenConfigFilePermissions(path string, configs map[string]CoreConfig) error {
+// writeConfigFile writes YAML bytes and sets permissions without leaving a token-bearing file
+// world-readable between truncate and chmod (Unix: temp file + rename with mode 0600).
+func writeConfigFile(path string, data []byte, configs map[string]CoreConfig) error {
+	sensitive := anyProfileStoresToken(configs)
 	if runtime.GOOS == "windows" {
-		return nil
+		perm := fs.FileMode(0o644)
+		if sensitive {
+			perm = 0o666
+		}
+		return os.WriteFile(path, data, perm)
 	}
-	if anyProfileStoresToken(configs) {
-		return os.Chmod(path, 0o600)
+	if sensitive {
+		return atomicWriteFileUnix(path, data, 0o600)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
 	}
 	return os.Chmod(path, 0o644)
+}
+
+func atomicWriteFileUnix(path string, data []byte, perm fs.FileMode) error {
+	dir := filepath.Dir(path)
+	f, err := os.CreateTemp(dir, ".permctl-config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp config: %w", err)
+	}
+	tmpPath := f.Name()
+	cleanup := true
+	defer func() {
+		_ = f.Close()
+		if cleanup {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := f.Chmod(perm); err != nil {
+		return fmt.Errorf("chmod temp config: %w", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("write temp config: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync temp config: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close temp config: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("replace config: %w", err)
+	}
+	cleanup = false
+	return nil
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -107,10 +151,7 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(file, newConfigDataByte, fs.FileMode(0o644)); err != nil {
-		return err
-	}
-	return tightenConfigFilePermissions(file, profileConfigs.Configs)
+	return writeConfigFile(file, newConfigDataByte, profileConfigs.Configs)
 }
 
 // Write the config file
@@ -125,8 +166,5 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0o644)); err != nil {
-		return err
-	}
-	return tightenConfigFilePermissions(profileConfigs.File, profileConfigs.Configs)
+	return writeConfigFile(profileConfigs.File, newConfigDataByte, profileConfigs.Configs)
 }

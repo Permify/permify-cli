@@ -21,15 +21,29 @@ type Params struct {
 	CertKeyPath string
 }
 
-func normalizeGRPCEndpoint(endpoint string) string {
+// parsedGRPCEndpoint is the dial target plus whether the URL explicitly required TLS to the server
+// (https:// or grpcs://). Stripping the scheme must not silently downgrade to plaintext when a token is used.
+type parsedGRPCEndpoint struct {
+	Target          string
+	ServerTLSScheme bool
+}
+
+func parseGRPCEndpoint(endpoint string) parsedGRPCEndpoint {
 	e := strings.TrimSpace(endpoint)
 	lower := strings.ToLower(e)
-	for _, prefix := range []string{"https://", "http://", "grpc://", "grpcs://"} {
-		if strings.HasPrefix(lower, prefix) {
-			return strings.TrimSpace(e[len(prefix):])
-		}
+	if strings.HasPrefix(lower, "https://") {
+		return parsedGRPCEndpoint{Target: strings.TrimSpace(e[len("https://"):]), ServerTLSScheme: true}
 	}
-	return e
+	if strings.HasPrefix(lower, "grpcs://") {
+		return parsedGRPCEndpoint{Target: strings.TrimSpace(e[len("grpcs://"):]), ServerTLSScheme: true}
+	}
+	if strings.HasPrefix(lower, "http://") {
+		return parsedGRPCEndpoint{Target: strings.TrimSpace(e[len("http://"):]), ServerTLSScheme: false}
+	}
+	if strings.HasPrefix(lower, "grpc://") {
+		return parsedGRPCEndpoint{Target: strings.TrimSpace(e[len("grpc://"):]), ServerTLSScheme: false}
+	}
+	return parsedGRPCEndpoint{Target: e, ServerTLSScheme: false}
 }
 
 func stripBearerPrefix(token string) string {
@@ -49,6 +63,7 @@ func serverNameForDial(target string) string {
 }
 
 func dialOptions(p Params) ([]grpc.DialOption, bool, error) {
+	parsed := parseGRPCEndpoint(p.Endpoint)
 	var opts []grpc.DialOption
 	tlsInUse := false
 
@@ -58,35 +73,40 @@ func dialOptions(p Params) ([]grpc.DialOption, bool, error) {
 		if err != nil {
 			return nil, false, fmt.Errorf("load client certificate: %w", err)
 		}
-		target := normalizeGRPCEndpoint(p.Endpoint)
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
-			ServerName:   serverNameForDial(target),
+			ServerName:   serverNameForDial(parsed.Target),
 		}
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
 		tlsInUse = true
 	case p.CertPath != "" || p.CertKeyPath != "":
 		return nil, false, fmt.Errorf("both cert_path and cert_key_path must be set together for TLS client authentication")
+	case parsed.ServerTLSScheme:
+		tlsCfg := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			ServerName: serverNameForDial(parsed.Target),
+		}
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+		tlsInUse = true
 	default:
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	token := stripBearerPrefix(p.Token)
 	if token != "" {
-		md := map[string]string{"authorization": "Bearer " + token}
-		if tlsInUse {
-			opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(md)))
-		} else {
-			opts = append(opts, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(md)))
+		if !tlsInUse {
+			return nil, false, fmt.Errorf("bearer token requires TLS: use https:// or grpcs:// in permify_url, or set cert_path and cert_key_path for mTLS")
 		}
+		md := map[string]string{"authorization": "Bearer " + token}
+		opts = append(opts, grpc.WithPerRPCCredentials(secureTokenCredentials(md)))
 	}
 
 	return opts, tlsInUse, nil
 }
 
 func New(p Params) (*permify.Client, error) {
-	target := normalizeGRPCEndpoint(p.Endpoint)
+	target := parseGRPCEndpoint(p.Endpoint).Target
 	if target == "" {
 		return nil, fmt.Errorf("endpoint is empty")
 	}

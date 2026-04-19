@@ -8,15 +8,12 @@ import (
 	"testing"
 )
 
-func TestTightenConfigFilePermissionsWithToken(t *testing.T) {
+func TestWriteConfigFilePermissionsWithToken(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cfg.yaml")
-	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfgs := map[string]CoreConfig{"default": {Token: "secret"}}
-	if err := tightenConfigFilePermissions(path, cfgs); err != nil {
+	cfgs := map[string]CoreConfig{"default": {Token: "secret", PermifyURL: "https://x", Tenant: "t"}}
+	if err := writeConfigFile(path, []byte("k: v\n"), cfgs); err != nil {
 		t.Fatal(err)
 	}
 	st, err := os.Stat(path)
@@ -28,15 +25,12 @@ func TestTightenConfigFilePermissionsWithToken(t *testing.T) {
 	}
 }
 
-func TestTightenConfigFilePermissionsNoToken(t *testing.T) {
+func TestWriteConfigFilePermissionsNoToken(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cfg.yaml")
-	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	cfgs := map[string]CoreConfig{"default": {PermifyURL: "localhost:1", Tenant: "t"}}
-	if err := tightenConfigFilePermissions(path, cfgs); err != nil {
+	if err := writeConfigFile(path, []byte("k: v\n"), cfgs); err != nil {
 		t.Fatal(err)
 	}
 	st, err := os.Stat(path)
