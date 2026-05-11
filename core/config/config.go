@@ -25,9 +25,12 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL  string `yaml:"permify_url"`
+	Tenant      string `yaml:"tenant"`
+	Token       string `yaml:"-"`
+	CertPath    string `yaml:"-"`
+	CertKeyPath string `yaml:"-"`
+	SslEnabled  bool   `yaml:"-"`
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -44,7 +47,12 @@ func IsConfigured(file string, profile string) error {
 	if err != nil {
 		logger.Log.Fatal("Error unmarshaling yaml")
 	}
-	if profileConfigs.Configs[profile].PermifyURL == "" {
+	storedCredentials, err := LoadStoredCredentials(profile)
+	if err != nil {
+		return err
+	}
+	permifyURL := firstNonEmpty(storedCredentials.PermifyURL, profileConfigs.Configs[profile].PermifyURL)
+	if permifyURL == "" {
 		return fmt.Errorf("permify url is empty for profile %s", profile)
 	}
 	if profileConfigs.Configs[profile].Tenant == "" {
@@ -70,6 +78,10 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
+	err = ApplyStoredCredentials(profile)
+	if err != nil {
+		return err
+	}
 	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
 	return err
 }
