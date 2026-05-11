@@ -21,7 +21,7 @@ func (lc *ListCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   lc.Command,
 		Short: "run list request",
-		Run:  lc.Run,
+		Run:   lc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)

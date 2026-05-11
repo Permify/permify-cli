@@ -24,7 +24,7 @@ func (cc *CheckCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   cc.Command,
 		Short: "run check request",
-		Run:  cc.Run,
+		Run:   cc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -72,7 +72,7 @@ func (cc *CheckCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		subject = newSubject 
+		subject = newSubject
 	}
 	parsedSubject, err := utils.ParseSubject(subject)
 
@@ -84,11 +84,11 @@ func (cc *CheckCmd) Run(cmd *cobra.Command, args []string) {
 		TenantId: config.CliConfig.Tenant,
 		Metadata: &v1.PermissionCheckRequestMetadata{
 			SchemaVersion: schemaVersion,
-			Depth: depth,
+			Depth:         depth,
 		},
-		Entity: parsedEntity,
+		Entity:     parsedEntity,
 		Permission: permission,
-		Subject: parsedSubject,
+		Subject:    parsedSubject,
 	}
 	checkResponse, err := permissionClient.Check(context.Background(), checkRequest)
 	if err != nil {

@@ -23,7 +23,7 @@ func ReadErrorResponse(StatusCode int, body []byte) error {
 		}
 		logger.Log.Error("Below is the error message from the server")
 		return errors.New(msg.Message)
-	} 
+	}
 
 	return errors.New(string(body))
 }

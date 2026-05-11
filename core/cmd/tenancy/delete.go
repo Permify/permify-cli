@@ -22,7 +22,7 @@ func (dc *DeleteCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   dc.Command,
 		Short: "run delete request",
-		Run:  dc.Run,
+		Run:   dc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -38,7 +38,7 @@ func (dc *DeleteCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		if newID== "" {
+		if newID == "" {
 			log.Error("id must not be empty")
 			os.Exit(1)
 		}

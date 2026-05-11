@@ -23,7 +23,7 @@ func (sc *SubjectCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   sc.Command,
 		Short: "run lookup request",
-		Run:  sc.Run,
+		Run:   sc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -61,7 +61,7 @@ func (sc *SubjectCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		subject = newSubject 
+		subject = newSubject
 	}
 	parsedSubject, err := utils.ParseSubject(subject)
 
@@ -69,11 +69,11 @@ func (sc *SubjectCmd) Run(cmd *cobra.Command, args []string) {
 	subjectRequest := &v1.PermissionSubjectPermissionRequest{
 		TenantId: config.CliConfig.Tenant,
 		Metadata: &v1.PermissionSubjectPermissionRequestMetadata{
-			SchemaVersion: schemaVersion,
+			SchemaVersion:  schemaVersion,
 			OnlyPermission: onlyPermission,
-			Depth: depth,
-		},	
-		Entity: parsedEntity,
+			Depth:          depth,
+		},
+		Entity:  parsedEntity,
 		Subject: parsedSubject,
 	}
 	subjectResponse, err := permissionClient.SubjectPermission(context.Background(), subjectRequest)

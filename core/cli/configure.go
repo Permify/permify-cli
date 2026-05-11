@@ -102,7 +102,27 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt("enter token (leave empty if none)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter cert path (leave empty if none)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKeyPath, err := tui.StringPrompt("enter cert key path (leave empty if none)", "", config.CliConfig.CertKeyPath)
+	if err != nil {
+		return err
+	}
+
+	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKeyPath = certKeyPath
+
+	resp, err := client.New()
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,7 +137,7 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)

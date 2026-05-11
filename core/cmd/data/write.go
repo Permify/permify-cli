@@ -23,7 +23,7 @@ func (wc *WriteCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   wc.Command,
 		Short: "run write request",
-		Run:  wc.Run,
+		Run:   wc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -70,7 +70,7 @@ func (wc *WriteCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		subject = newSubject 
+		subject = newSubject
 	}
 	parsedSubject, err := utils.ParseSubject(subject)
 
@@ -82,12 +82,12 @@ func (wc *WriteCmd) Run(cmd *cobra.Command, args []string) {
 			SchemaVersion: schemaVersion,
 		},
 		Tuples: []*v1.Tuple{{
-			Entity: parsedEntity,
+			Entity:   parsedEntity,
 			Relation: relation,
-			Subject: parsedSubject,
+			Subject:  parsedSubject,
 		}},
 	}
-	writeResponse, err := dataClient.Write(context.Background(), writeRequest)	
+	writeResponse, err := dataClient.Write(context.Background(), writeRequest)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

@@ -22,7 +22,7 @@ func (rc *ReadCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   rc.Command,
 		Short: "run read request",
-		Run:  rc.Run,
+		Run:   rc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)

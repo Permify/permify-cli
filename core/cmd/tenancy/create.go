@@ -22,7 +22,7 @@ func (cc *CreateCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   cc.Command,
 		Short: "run create request",
-		Run:  cc.Run,
+		Run:   cc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -39,7 +39,7 @@ func (cc *CreateCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		if newID== "" {
+		if newID == "" {
 			log.Error("id must not be empty")
 			os.Exit(1)
 		}
@@ -53,7 +53,7 @@ func (cc *CreateCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		if newName== "" {
+		if newName == "" {
 			log.Error("name must not be empty")
 			os.Exit(1)
 		}
@@ -62,7 +62,7 @@ func (cc *CreateCmd) Run(cmd *cobra.Command, args []string) {
 
 	tenancyClient := Client()
 	createRequest := &v1.TenantCreateRequest{
-		Id: id,
+		Id:   id,
 		Name: name,
 	}
 	createResponse, err := tenancyClient.Create(context.Background(), createRequest)

@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 func AddComponents(rootCmd *cobra.Command) {
 	permissionCmd := permission.New()
 	tenancyCmd := tenancy.New()

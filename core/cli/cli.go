@@ -86,7 +86,7 @@ func initializeConfig(cmd *cobra.Command, _ []string) error {
 
 // Run - function to run on root cli command
 func (c Cli) Run(cmd *cobra.Command, _ []string) {
-	cmd.Help() 
+	cmd.Help()
 }
 
 // Execute - run the root command
@@ -97,4 +97,3 @@ func (c Cli) Execute() {
 		os.Exit(1)
 	}
 }
-
