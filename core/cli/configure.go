@@ -96,18 +96,42 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
+	profile, _ := cmd.Flags().GetString("profile")
 
 	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt("enter bearer token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter client certificate path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKeyPath, err := tui.StringPrompt("enter client certificate key path (optional)", "", config.CliConfig.CertKeyPath)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.New(client.Params{
+		Endpoint:    url,
+		Token:       token,
+		CertPath:    certPath,
+		CertKeyPath: certKeyPath,
+	})
+	if err != nil {
+		return err
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
 	if err != nil {
-		logger.Log.Fatal(err)
+		return err
 	}
 
 	tenantNames := []string{}
@@ -117,16 +141,21 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
-		logger.Log.Error(err)
+		return err
 	}
 	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
-	err = config.Write()
-	if err != nil {
-		logger.Log.Error(err)
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKeyPath = certKeyPath
+	if err := config.Write(); err != nil {
+		return err
+	}
+	if err := config.WriteStoredCredentials(profile, config.CliConfig); err != nil {
+		return err
 	}
 	logger.Log.Info("successfully configured ", "config file", configFile)
 	return nil
