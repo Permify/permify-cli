@@ -23,7 +23,7 @@ func (ec *ExpandCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   ec.Command,
 		Short: "run expand request",
-		Run:  ec.Run,
+		Run:   ec.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -57,9 +57,8 @@ func (ec *ExpandCmd) Run(cmd *cobra.Command, args []string) {
 		Metadata: &v1.PermissionExpandRequestMetadata{
 			SchemaVersion: schemaVersion,
 		},
-		Entity: parsedEntity,
+		Entity:     parsedEntity,
 		Permission: permission,
-
 	}
 	expandResponse, err := permissionClient.Expand(context.Background(), expandRequest)
 	if err != nil {

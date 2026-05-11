@@ -13,7 +13,7 @@ func New() *cobra.Command {
 		Short: "use permify permissions api",
 		Long:  "use permify permissions api",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help() 
+			cmd.Help()
 		},
 		PreRun: utils.CheckIfUnknownSubcommand,
 	}

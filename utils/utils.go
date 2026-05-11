@@ -109,7 +109,7 @@ func ParseEntity(entityStr string) (*v1.Entity, error) {
 	entity := strings.Split(entityStr, ":")
 	return &v1.Entity{
 		Type: entity[0],
-		Id: entity[1],
+		Id:   entity[1],
 	}, nil
 }
 
@@ -119,29 +119,29 @@ func ParseSubject(subjectStr string) (*v1.Subject, error) {
 		return nil, errors.New("Subject string should match pattern <type>:<id>#relation (relation is optional)")
 	}
 	subject := strings.FieldsFunc(subjectStr, func(r rune) bool {
-        return r == ':' || r == '#'
-    })
+		return r == ':' || r == '#'
+	})
 	if len(subject) == 3 {
 		return &v1.Subject{
-			Type: subject[0],
-			Id: subject[1],
+			Type:     subject[0],
+			Id:       subject[1],
 			Relation: subject[2],
 		}, nil
 	}
 	return &v1.Subject{
 		Type: subject[0],
-		Id: subject[1],
+		Id:   subject[1],
 	}, nil
 }
 
 func ReadFileToString(filePath string) (string, error) {
 	if !strings.HasSuffix(filepath.Base(filePath), ".perm") {
-        return "", fmt.Errorf("only perm schema files accepted")
-    }
-    data, err := os.ReadFile(filePath)
-    if err != nil {
-        return "", err
-    }
-    fileContents := string(data)
-    return fileContents, nil
+		return "", fmt.Errorf("only perm schema files accepted")
+	}
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	fileContents := string(data)
+	return fileContents, nil
 }

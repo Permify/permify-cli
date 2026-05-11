@@ -23,8 +23,8 @@ func (rc *ReadCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   rc.Command,
 		Short: "run read request",
-		Run:  func(cmd *cobra.Command, args []string) {
-			cmd.Help() 
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
 		},
 		PreRun: utils.CheckIfUnknownSubcommand,
 	}
@@ -42,10 +42,10 @@ type ReadRelationsCmd struct {
 
 func (rr *ReadRelationsCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: rr.Command,
+		Use:   rr.Command,
 		Short: "run read relationships request",
-		Run: rr.Run,
-		Args: cobra.NoArgs,
+		Run:   rr.Run,
+		Args:  cobra.NoArgs,
 	}
 	cmd.Flags().StringP("entity", "e", "", "entity filter specified as - <type>:<id>")
 	cmd.Flags().StringP("relation", "r", "", "relation filter")
@@ -76,7 +76,7 @@ func (rr *ReadRelationsCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		if newRelation== "" {
+		if newRelation == "" {
 			log.Error("relation must not be empty")
 			os.Exit(1)
 		}
@@ -90,7 +90,7 @@ func (rr *ReadRelationsCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		subject = newSubject 
+		subject = newSubject
 	}
 	parsedSubject, err := utils.ParseSubject(subject)
 
@@ -101,12 +101,12 @@ func (rr *ReadRelationsCmd) Run(cmd *cobra.Command, args []string) {
 		Filter: &v1.TupleFilter{
 			Entity: &v1.EntityFilter{
 				Type: parsedEntity.Type,
-				Ids: []string{parsedEntity.Id},
+				Ids:  []string{parsedEntity.Id},
 			},
 			Relation: relation,
 			Subject: &v1.SubjectFilter{
 				Type: parsedSubject.Type,
-				Ids: []string{parsedSubject.Id},
+				Ids:  []string{parsedSubject.Id},
 			},
 		},
 	}
@@ -124,10 +124,10 @@ type ReadAttributesCmd struct {
 
 func (ra *ReadAttributesCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: ra.Command,
+		Use:   ra.Command,
 		Short: "run lookup subject request",
-		Run: ra.Run,
-		Args: cobra.NoArgs,
+		Run:   ra.Run,
+		Args:  cobra.NoArgs,
 	}
 	cmd.Flags().StringP("entity", "e", "", "entity filter specified as - <type>:<id>")
 	cmd.Flags().StringP("relation", "r", "", "relation filter")
@@ -171,7 +171,7 @@ func (ra *ReadAttributesCmd) Run(cmd *cobra.Command, args []string) {
 		Filter: &v1.AttributeFilter{
 			Entity: &v1.EntityFilter{
 				Type: parsedEntity.Type,
-				Ids: []string{parsedEntity.Id},
+				Ids:  []string{parsedEntity.Id},
 			},
 			Attributes: []string{attribute},
 		},

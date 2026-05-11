@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
 type TextInput struct {
 	Msg         string
 	Placeholder string

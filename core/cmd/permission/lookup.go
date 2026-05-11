@@ -23,8 +23,8 @@ func (lc *LookupCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   lc.Command,
 		Short: "run lookup request",
-		Run:  func(cmd *cobra.Command, args []string) {
-			cmd.Help() 
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
 		},
 		PreRun: utils.CheckIfUnknownSubcommand,
 	}
@@ -42,10 +42,10 @@ type LookupEntityCmd struct {
 
 func (le *LookupEntityCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: le.Command,
+		Use:   le.Command,
 		Short: "run lookup entity request",
-		Run: le.Run,
-		Args: cobra.NoArgs,
+		Run:   le.Run,
+		Args:  cobra.NoArgs,
 	}
 	cmd.Flags().Int32("depth", 50, "depth of the check must be >= 3")
 	cmd.Flags().StringP("type", "t", "", "entity type to lookup")
@@ -65,7 +65,7 @@ func (le *LookupEntityCmd) Run(cmd *cobra.Command, args []string) {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		subject = newSubject 
+		subject = newSubject
 	}
 	parsedSubject, err := utils.ParseSubject(subject)
 
@@ -99,12 +99,12 @@ func (le *LookupEntityCmd) Run(cmd *cobra.Command, args []string) {
 
 	permissionClient := Client()
 	lookupRequest := &v1.PermissionLookupEntityRequest{
-		TenantId: config.CliConfig.Tenant,	
+		TenantId: config.CliConfig.Tenant,
 		Metadata: &v1.PermissionLookupEntityRequestMetadata{
 			SchemaVersion: schemaVersion,
-			Depth: depth,
+			Depth:         depth,
 		},
-		Subject: parsedSubject,
+		Subject:    parsedSubject,
 		EntityType: entityType,
 		Permission: permission,
 	}
@@ -113,7 +113,7 @@ func (le *LookupEntityCmd) Run(cmd *cobra.Command, args []string) {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	utils.PrettyPrint(lookupResponse)	
+	utils.PrettyPrint(lookupResponse)
 }
 
 type LookupSubjectCmd struct {
@@ -122,10 +122,10 @@ type LookupSubjectCmd struct {
 
 func (ls *LookupSubjectCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: ls.Command,
+		Use:   ls.Command,
 		Short: "run lookup subject request",
-		Run: ls.Run,
-		Args: cobra.NoArgs,
+		Run:   ls.Run,
+		Args:  cobra.NoArgs,
 	}
 	cmd.Flags().Int32("depth", 50, "depth of the check must be >= 3")
 	cmd.Flags().StringP("permission", "p", "", "permission to check")
@@ -189,12 +189,12 @@ func (ls *LookupSubjectCmd) Run(cmd *cobra.Command, args []string) {
 		TenantId: config.CliConfig.Tenant,
 		Metadata: &v1.PermissionLookupSubjectRequestMetadata{
 			SchemaVersion: schemaVersion,
-			Depth: depth,
+			Depth:         depth,
 		},
-		Entity: parsedEntity,
+		Entity:     parsedEntity,
 		Permission: permission,
 		SubjectReference: &v1.RelationReference{
-			Type: subjectType,
+			Type:     subjectType,
 			Relation: subjectRelation,
 		},
 	}

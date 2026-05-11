@@ -22,7 +22,7 @@ func (wc *WriteCmd) Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   wc.Command,
 		Short: "run read request",
-		Run:  wc.Run,
+		Run:   wc.Run,
 		Args:  cobra.NoArgs,
 	}
 	cmd.SetHelpFunc(utils.CmdHelp)
@@ -42,7 +42,7 @@ func (wc *WriteCmd) Run(cmd *cobra.Command, args []string) {
 	schemaClient := Client()
 	writeRequest := &v1.SchemaWriteRequest{
 		TenantId: config.CliConfig.Tenant,
-		Schema: schema,
+		Schema:   schema,
 	}
 	writeResponse, err := schemaClient.Write(context.Background(), writeRequest)
 	if err != nil {
