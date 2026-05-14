@@ -27,6 +27,26 @@ func StringPrompt(msg string, Placeholder, defaultVal string) (string, error) {
 	return "", errors.New("prompt cancelled")
 }
 
+func SecretPrompt(msg string, Placeholder, defaultVal string) (string, error) {
+	t := &Tui{}
+	prompt := textinput.New()
+	prompt.Prompt = Pink(fmt.Sprintf("%s: ", msg))
+	prompt.Placeholder = Placeholder
+	prompt.EchoMode = textinput.EchoPassword
+	if defaultVal != "" {
+		prompt.SetValue(strings.Trim(defaultVal, "\""))
+	}
+	t.Inputs = append(t.Inputs, prompt)
+	t.Inputs[0].Focus()
+	t.Execute()
+
+	if t.Done {
+		return t.Inputs[0].Value(), nil
+	}
+
+	return "", errors.New("prompt cancelled")
+}
+
 func BoolPrompt(msg string, defaultVal string) (bool, error) {
 	t := &Tui{}
 	prompt := textinput.New()
