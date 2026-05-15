@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Permify/permify-cli/core/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,9 +24,12 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url,omitempty"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"-"`
+	CertPath   string `yaml:"-"`
+	CertKey    string `yaml:"-"`
+	SslEnabled bool   `yaml:"-"`
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -40,14 +42,21 @@ func IsConfigured(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = yaml.Unmarshal(data, &profileConfigs.Configs)
-	if err != nil {
-		logger.Log.Fatal("Error unmarshaling yaml")
+	if err = yaml.Unmarshal(data, &profileConfigs.Configs); err != nil {
+		return fmt.Errorf("unmarshal config file %s: %w", file, err)
 	}
-	if profileConfigs.Configs[profile].PermifyURL == "" {
+	if profileConfigs.Configs == nil {
+		profileConfigs.Configs = make(map[string]CoreConfig)
+	}
+	profileConfig := profileConfigs.Configs[profile]
+	credentials, err := LoadStoredCredentials(profile)
+	if err != nil {
+		return err
+	}
+	if firstNonEmpty(credentials.EndpointValue(), profileConfig.PermifyURL) == "" {
 		return fmt.Errorf("permify url is empty for profile %s", profile)
 	}
-	if profileConfigs.Configs[profile].Tenant == "" {
+	if profileConfig.Tenant == "" {
 		return fmt.Errorf("tenant is empty for profile %s", profile)
 	}
 	return nil
@@ -63,14 +72,21 @@ func Load(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = yaml.Unmarshal(data, &profileConfigs.Configs)
-	if err != nil {
-		logger.Log.Fatal("Error unmarshaling yaml")
+	if err = yaml.Unmarshal(data, &profileConfigs.Configs); err != nil {
+		return fmt.Errorf("unmarshal config file %s: %w", file, err)
+	}
+	if profileConfigs.Configs == nil {
+		profileConfigs.Configs = make(map[string]CoreConfig)
 	}
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	if err = ApplyStoredCredentials(profile); err != nil {
+		return err
+	}
+	CliConfig.SslEnabled = strings.HasPrefix(strings.ToLower(CliConfig.PermifyURL), "https") ||
+		strings.HasPrefix(strings.ToLower(CliConfig.PermifyURL), "grpcs") ||
+		CliConfig.CertPath != ""
 	return err
 }
 
@@ -95,7 +111,12 @@ func Write() error {
 		return fmt.Errorf("%s config file does not exist", profileConfigs.File)
 	}
 	profile := profileConfigs.Profile
-	profileConfigs.Configs[profile] = CliConfig
+	if profileConfigs.Configs == nil {
+		profileConfigs.Configs = make(map[string]CoreConfig)
+	}
+	profileConfig := CliConfig
+	profileConfig.PermifyURL = ""
+	profileConfigs.Configs[profile] = profileConfig
 	newConfigDataByte, err := yaml.Marshal(profileConfigs.Configs)
 	if err != nil {
 		return err
