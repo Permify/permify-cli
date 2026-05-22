@@ -102,7 +102,31 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	token, err := tui.StringPrompt("enter auth token (optional, bearer token)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter tls client cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter tls client cert key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	// Use the provided values to validate connectivity and list tenants.
+	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
+
 	resp, err := client.New(url)
+	if err != nil {
+		return err
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -122,7 +146,6 @@ func runE(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		logger.Log.Error(err)
 	}
-	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
 	err = config.Write()
 	if err != nil {
