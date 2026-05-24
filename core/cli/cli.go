@@ -42,6 +42,9 @@ func New(name, shortDescription, defaultConfigPath string) *Cli {
 	//disable help sub command
 	c.Cmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	c.Cmd.AddCommand(ConfigureCmd())
+	c.Cmd.AddCommand(LoginCmd())
+	c.Cmd.AddCommand(LogoutCmd())
+	c.Cmd.AddCommand(WhoamiCmd())
 	c.Cmd.PersistentFlags().Bool("debug", false, "verbose logging")
 	c.Cmd.PersistentFlags().String("config", defaultConfigPath, fmt.Sprintf("%s config file", c.Name))
 	c.Cmd.PersistentFlags().String("profile", "default", "profile name for config")
