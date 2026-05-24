@@ -147,10 +147,27 @@ func runE(cmd *cobra.Command, _ []string) error {
 		logger.Log.Error(err)
 	}
 	config.CliConfig.Tenant = tenantIds[tenant]
-	err = config.Write()
+
+	// Store connection credentials separately to avoid repeatedly prompting users.
+	credentialsFile, err := config.WriteCredentials(config.Credentials{
+		Endpoint: url,
+		Token:    token,
+		CertPath: certPath,
+		CertKey:  certKey,
+	})
 	if err != nil {
+		return err
+	}
+
+	// Avoid persisting tokens/cert paths in the main config YAML.
+	config.CliConfig.Token = ""
+	config.CliConfig.CertPath = ""
+	config.CliConfig.CertKey = ""
+
+	if err := config.Write(); err != nil {
 		logger.Log.Error(err)
 	}
 	logger.Log.Info("successfully configured ", "config file", configFile)
+	logger.Log.Info("saved connection credentials", "credentials file", credentialsFile)
 	return nil
 }
