@@ -25,9 +25,12 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	SslEnabled bool   `yaml:"-"`
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -84,8 +87,15 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	err = writeConfigFile(file, newConfigDataByte)
 	return err
+}
+
+func writeConfigFile(file string, data []byte) error {
+	if err := os.WriteFile(file, data, fs.FileMode(0600)); err != nil {
+		return err
+	}
+	return os.Chmod(file, fs.FileMode(0600))
 }
 
 // Write the config file
@@ -100,6 +110,6 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	err = writeConfigFile(profileConfigs.File, newConfigDataByte)
 	return err
 }

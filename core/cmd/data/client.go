@@ -10,10 +10,10 @@ import (
 )
 
 func Client() v1.DataClient {
-	c, err := client.New(config.CliConfig.PermifyURL)
+	c, err := client.NewFromConfig(config.CliConfig)
 	if err != nil {
 		log.Error("Error initializing permify client. Check the configuration or rerun `permify configure`")
-		os.Exit(-1)	
+		os.Exit(-1)
 	}
 	return c.Data
 }
