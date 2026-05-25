@@ -94,6 +94,16 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func buildConfig(url, tenant, token, certPath, certKey string) config.CoreConfig {
+	return config.CoreConfig{
+		PermifyURL: url,
+		Tenant:     tenant,
+		Token:      token,
+		CertPath:   certPath,
+		CertKey:    certKey,
+	}
+}
+
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
 
@@ -117,13 +127,24 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
-	config.CliConfig.PermifyURL = url
-	config.CliConfig.Tenant = tenantIds[tenant]
+	token, err := tui.StringPrompt("enter API token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+	certPath, err := tui.StringPrompt("enter TLS cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+	certKey, err := tui.StringPrompt("enter TLS cert key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+	config.CliConfig = buildConfig(url, tenantIds[tenant], token, certPath, certKey)
 	err = config.Write()
 	if err != nil {
 		logger.Log.Error(err)
