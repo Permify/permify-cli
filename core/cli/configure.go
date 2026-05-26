@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ConfigureCmd provides the configure command on permctl
 func ConfigureCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:              "configure",
@@ -64,14 +63,12 @@ func persistentPreRunE(cmd *cobra.Command, args []string) error {
 func validateFlags(cmd *cobra.Command, args []string) error {
 	cmd.DisableFlagParsing = false
 	err := cmd.ParseFlags(args)
-	// if error, print error and help info
 	if err != nil {
 		fmt.Println(err)
 		cmd.Help()
 		fmt.Println()
 		os.Exit(0)
 	}
-	// if flag is for help show help message
 	if cmd.Flag("help").Value.String() == "true" {
 		cmd.Help()
 		fmt.Println()
@@ -81,12 +78,10 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	err = cmd.ValidateRequiredFlags()
 	if err != nil {
 		return err
 	}
-
 	err = cmd.ValidateArgs(args)
 	if err != nil {
 		return err
@@ -102,9 +97,26 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt("enter auth token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
 
-	// Todo: Implement pagination
+	certPath, err := tui.StringPrompt("enter TLS cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter TLS cert key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.New(url, token, certPath, certKey)
+	if err != nil {
+		logger.Log.Fatal(err)
+	}
+
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
 	if err != nil {
 		logger.Log.Fatal(err)
@@ -117,13 +129,16 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
 	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
 	err = config.Write()
 	if err != nil {
 		logger.Log.Error(err)
