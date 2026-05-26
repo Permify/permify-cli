@@ -1,4 +1,3 @@
-// Package config holds config variables and functions
 package config
 
 import (
@@ -11,26 +10,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CliConfig is the global config variable
 var CliConfig = CoreConfig{}
 
 var profileConfigs = ProfileConfigs{}
 
-// ProfileConfigs stores configs for all profiles
 type ProfileConfigs struct {
 	Configs map[string]CoreConfig
 	File    string
 	Profile string
 }
 
-// CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token"`
+	CertPath   string `yaml:"cert_path"`
+	CertKey    string `yaml:"cert_key"`
+	SslEnabled bool   `yaml:"-"`
 }
 
-// IsConfigured checks if permctl cli has been configured
 func IsConfigured(file string, profile string) error {
 	_, err := os.Stat(file)
 	if err != nil {
@@ -53,7 +51,6 @@ func IsConfigured(file string, profile string) error {
 	return nil
 }
 
-// Load the permctl configuration specified by the user into the global variable
 func Load(file string, profile string) error {
 	_, err := os.Stat(file)
 	if err != nil {
@@ -74,7 +71,6 @@ func Load(file string, profile string) error {
 	return err
 }
 
-// New initializes a new config file for permctl with the mentioned profile
 func New(file string, profile string) error {
 	profileConfigs.Profile = profile
 	profileConfigs.File = file
@@ -88,7 +84,6 @@ func New(file string, profile string) error {
 	return err
 }
 
-// Write the config file
 func Write() error {
 	_, err := os.Stat(profileConfigs.File)
 	if err != nil {
