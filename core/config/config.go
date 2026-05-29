@@ -25,10 +25,22 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL   string `yaml:"permify_url"`
+	Tenant       string `yaml:"tenant"`
+	Token        string `yaml:"token,omitempty"`
+	CertPath     string `yaml:"cert_path,omitempty"`
+	CertKeyPath  string `yaml:"cert_key_path,omitempty"`
+	SslEnabled   bool   `yaml:"-"`
 }
+
+const (
+	// Env overrides (do not get written back to config automatically)
+	PermifyURLEnv     = "PERMCTL_PERMIFY_URL"
+	PermifyTenantEnv  = "PERMCTL_TENANT"
+	PermifyTokenEnv   = "PERMCTL_TOKEN"
+	PermifyCertEnv    = "PERMCTL_CERT_PATH"
+	PermifyCertKeyEnv = "PERMCTL_CERT_KEY_PATH"
+)
 
 // IsConfigured checks if permctl cli has been configured
 func IsConfigured(file string, profile string) error {
@@ -70,8 +82,27 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
+	applyEnvOverrides(&CliConfig)
 	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
 	return err
+}
+
+func applyEnvOverrides(cfg *CoreConfig) {
+	if v := strings.TrimSpace(os.Getenv(PermifyURLEnv)); v != "" {
+		cfg.PermifyURL = v
+	}
+	if v := strings.TrimSpace(os.Getenv(PermifyTenantEnv)); v != "" {
+		cfg.Tenant = v
+	}
+	if v := strings.TrimSpace(os.Getenv(PermifyTokenEnv)); v != "" {
+		cfg.Token = v
+	}
+	if v := strings.TrimSpace(os.Getenv(PermifyCertEnv)); v != "" {
+		cfg.CertPath = v
+	}
+	if v := strings.TrimSpace(os.Getenv(PermifyCertKeyEnv)); v != "" {
+		cfg.CertKeyPath = v
+	}
 }
 
 // New initializes a new config file for permctl with the mentioned profile
@@ -84,7 +115,8 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	// config may contain secrets (token), so default to owner-read/write.
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +132,7 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	// config may contain secrets (token), so default to owner-read/write.
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }

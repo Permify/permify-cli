@@ -42,3 +42,26 @@ If you like Permify, please consider giving us a :star:
   <img height="70px" width="70px" alt="permify | Linkedin" src="https://user-images.githubusercontent.com/39353278/187209321-03293a24-6f63-4321-b362-b0fc89fdd879.png" />
 </a>
 </p>
+
+## Configuration
+
+Run `permctl configure` to create/update your config file and select a tenant.
+
+Example config file:
+
+```yaml
+default:
+  permify_url: "localhost:3478"
+  tenant: "t1"
+  token: "YOUR_TOKEN" # optional
+  cert_path: "/path/to/client.crt" # optional (mTLS)
+  cert_key_path: "/path/to/client.key" # optional (mTLS)
+```
+
+Environment variable overrides (not written back to file):
+
+- `PERMCTL_PERMIFY_URL`
+- `PERMCTL_TENANT`
+- `PERMCTL_TOKEN`
+- `PERMCTL_CERT_PATH`
+- `PERMCTL_CERT_KEY_PATH`
