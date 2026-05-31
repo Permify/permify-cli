@@ -25,9 +25,15 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	Tenant     string `yaml:"tenant"`
+
+	// SslEnabled is computed at load-time and intentionally not persisted.
+	// It indicates whether the client should use TLS when dialing gRPC.
+	SslEnabled bool `yaml:"-"`
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -70,7 +76,10 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	// Permify gRPC endpoints are typically host:port (no scheme). For backwards
+	// compatibility, keep the "https" heuristic, but also enable TLS whenever
+	// cert material is configured.
+	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https") || CliConfig.CertPath != "" || CliConfig.CertKey != ""
 	return err
 }
 
@@ -84,7 +93,8 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	// Config may include secrets (e.g. token). Restrict to owner-only.
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +110,7 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	// Config may include secrets (e.g. token). Restrict to owner-only.
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
