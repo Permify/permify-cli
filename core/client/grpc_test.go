@@ -88,6 +88,30 @@ func TestTransportCredentialsUsesTLSCertificate(t *testing.T) {
 	}
 }
 
+func TestTransportCredentialsRejectsKeyWithoutCertificate(t *testing.T) {
+	_, err := transportCredentials(config.CoreConfig{
+		CertKeyPath: "certs/client.key",
+	})
+	if err == nil {
+		t.Fatal("transportCredentials() error = nil, want validation error")
+	}
+}
+
+func TestNormalizeEndpointStripsHTTPAndHTTPSSchemes(t *testing.T) {
+	testCases := map[string]string{
+		"http://localhost:3478":     "localhost:3478",
+		"https://permify.example":   "permify.example",
+		"permify.internal:3478":     "permify.internal:3478",
+		"https://localhost:3478/v1": "localhost:3478/v1",
+	}
+
+	for input, want := range testCases {
+		if got := normalizeEndpoint(input); got != want {
+			t.Fatalf("normalizeEndpoint(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
 func writeTestCertificate(t *testing.T) (string, string) {
 	t.Helper()
 
