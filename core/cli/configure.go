@@ -102,7 +102,7 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	token, err := tui.StringPrompt("enter access token (optional)", "", config.CliConfig.Token)
+	token, err := tui.SensitiveStringPrompt("enter access token (optional)", "", config.CliConfig.Token)
 	if err != nil {
 		return err
 	}
