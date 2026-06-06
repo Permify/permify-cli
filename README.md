@@ -29,6 +29,13 @@ Our goal is to make Google's Zanzibar available to everyone and help them build 
 
 ## Communication Channels
 
+## Configuration Credentials
+
+`permctl configure` stores the selected endpoint and tenant in the active
+profile. It also supports optional `token`, `cert_path`, and `cert_key_path`
+values so later client creation can reuse API credentials and TLS settings from
+the same config file.
+
 If you like Permify, please consider giving us a :star:
 
 <p align="left">
