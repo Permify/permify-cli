@@ -10,7 +10,13 @@ import (
 )
 
 func Client() v1.TenancyClient {
-	c, err := client.New(config.CliConfig.PermifyURL)
+	token, certPath, certKey := config.GetCredentials()
+	creds := client.Credentials{
+		Token:    token,
+		CertPath: certPath,
+		CertKey:  certKey,
+	}
+	c, err := client.New(config.CliConfig.PermifyURL, creds)
 	if err != nil {
 		log.Error("Error initializing permify client. Check the configuration or rerun `permify configure`")
 		os.Exit(-1)	

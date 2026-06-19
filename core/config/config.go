@@ -27,6 +27,9 @@ type ProfileConfigs struct {
 type CoreConfig struct {
 	PermifyURL			 string  `yaml:"permify_url"`
 	Tenant 				 string  `yaml:"tenant"`
+	Token                string  `yaml:"token,omitempty"`
+	CertPath             string  `yaml:"cert_path,omitempty"`
+	CertKey              string  `yaml:"cert_key,omitempty"`
 	SslEnabled           bool    `yaml:"-"`
 }
 
@@ -53,6 +56,16 @@ func IsConfigured(file string, profile string) error {
 	return nil
 }
 
+// HasCredentials checks if credentials are configured for the current profile
+func HasCredentials() bool {
+	return CliConfig.Token != "" || CliConfig.CertPath != ""
+}
+
+// GetCredentials returns the stored credentials
+func GetCredentials() (token, certPath, certKey string) {
+	return CliConfig.Token, CliConfig.CertPath, CliConfig.CertKey
+}
+
 // Load the permctl configuration specified by the user into the global variable
 func Load(file string, profile string) error {
 	_, err := os.Stat(file)
@@ -70,7 +83,7 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https") || CliConfig.CertPath != ""
 	return err
 }
 
