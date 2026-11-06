@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
+	"github.com/Permify/permify-cli/core/config"
 	"github.com/Permify/permify-cli/core/logger"
 )
 
@@ -23,9 +25,15 @@ func ReadErrorResponse(StatusCode int, body []byte) error {
 		}
 		logger.Log.Error("Below is the error message from the server")
 		return errors.New(msg.Message)
-	} 
+	}
 
 	return errors.New(string(body))
+}
+
+func attachAuthorizationHeader(req *http.Request) {
+	if token := strings.TrimSpace(config.CliConfig.Token); token != "" {
+		req.Header.Add("Authorization", bearerToken(token))
+	}
 }
 
 // Get request implementation
@@ -40,6 +48,7 @@ func Get(host, path string, query map[string]string, respModel interface{}) erro
 		logger.Log.Error("failed to create request object")
 		return err
 	}
+	attachAuthorizationHeader(req)
 	q := req.URL.Query()
 	for k, v := range query {
 		q.Add(k, v)
@@ -86,6 +95,7 @@ func Post(host, path string, query map[string]string, requestModel, respModel in
 		logger.Log.Error("failed to create request")
 		return err
 	}
+	attachAuthorizationHeader(req)
 	req.Header.Add("Content-Type", "application/json")
 	q := req.URL.Query()
 	for k, v := range query {
@@ -124,6 +134,7 @@ func Delete(host, path string, query map[string]string, respModel interface{}) e
 		logger.Log.Error("failed to create request object")
 		return err
 	}
+	attachAuthorizationHeader(req)
 	req.Header.Add("Content-Type", "application/json")
 	q := req.URL.Query()
 	for k, v := range query {
@@ -166,6 +177,7 @@ func Put(host, path string, query map[string]string, requestParams, respModel in
 		logger.Log.Error("failed to create request")
 		return err
 	}
+	attachAuthorizationHeader(req)
 	req.Header.Add("Content-Type", "application/json")
 	q := req.URL.Query()
 	for k, v := range query {
