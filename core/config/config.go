@@ -5,15 +5,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Permify/permify-cli/core/logger"
 	"gopkg.in/yaml.v3"
 )
-
-const credentialsDir = ".permify"
-const credentialsFileName = "credentials"
 
 // CliConfig is the global config variable
 var CliConfig = CoreConfig{}
@@ -29,12 +25,12 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL         string `yaml:"permify_url"`
-	Tenant             string `yaml:"tenant"`
-	Token              string `yaml:"token,omitempty"`
-	CertificatePath    string `yaml:"certificate_path,omitempty"`
-	CertificateKeyPath string `yaml:"certificate_key_path,omitempty"`
-	SslEnabled         bool   `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	Tenant     string `yaml:"tenant"`
+	SslEnabled bool   `yaml:"-"`
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -77,9 +73,6 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	if err := loadCredentials(profile); err != nil {
-		return err
-	}
 	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
 	return err
 }
@@ -89,7 +82,7 @@ func New(file string, profile string) error {
 	profileConfigs.Profile = profile
 	profileConfigs.File = file
 	profileConfigs.Configs = make(map[string]CoreConfig)
-	profileConfigs.Configs[profile] = configWithoutCredentials(CliConfig)
+	profileConfigs.Configs[profile] = CliConfig
 	newConfigDataByte, err := yaml.Marshal(profileConfigs.Configs)
 	if err != nil {
 		return err
@@ -105,82 +98,11 @@ func Write() error {
 		return fmt.Errorf("%s config file does not exist", profileConfigs.File)
 	}
 	profile := profileConfigs.Profile
-	profileConfigs.Configs[profile] = configWithoutCredentials(CliConfig)
+	profileConfigs.Configs[profile] = CliConfig
 	newConfigDataByte, err := yaml.Marshal(profileConfigs.Configs)
 	if err != nil {
 		return err
 	}
 	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
-	if err != nil {
-		return err
-	}
-	return writeCredentials(profile)
-}
-
-func configWithoutCredentials(config CoreConfig) CoreConfig {
-	config.Token = ""
-	config.CertificatePath = ""
-	config.CertificateKeyPath = ""
-	return config
-}
-
-func credentialsPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, credentialsDir, credentialsFileName), nil
-}
-
-func loadCredentials(profile string) error {
-	file, err := credentialsPath()
-	if err != nil {
-		return err
-	}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	credentials := map[string]CoreConfig{}
-	if err := yaml.Unmarshal(data, &credentials); err != nil {
-		return err
-	}
-	profileCredentials := credentials[profile]
-	CliConfig.Token = profileCredentials.Token
-	CliConfig.CertificatePath = profileCredentials.CertificatePath
-	CliConfig.CertificateKeyPath = profileCredentials.CertificateKeyPath
-	return nil
-}
-
-func writeCredentials(profile string) error {
-	file, err := credentialsPath()
-	if err != nil {
-		return err
-	}
-	credentials := map[string]CoreConfig{}
-	data, err := os.ReadFile(file)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if len(data) > 0 {
-		if err := yaml.Unmarshal(data, &credentials); err != nil {
-			return err
-		}
-	}
-	credentials[profile] = CoreConfig{
-		Token:              CliConfig.Token,
-		CertificatePath:    CliConfig.CertificatePath,
-		CertificateKeyPath: CliConfig.CertificateKeyPath,
-	}
-	newCredentialData, err := yaml.Marshal(credentials)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(file), fs.FileMode(0700)); err != nil {
-		return err
-	}
-	return os.WriteFile(file, newCredentialData, fs.FileMode(0600))
+	return err
 }
