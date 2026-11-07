@@ -3,8 +3,6 @@ package client
 
 import (
 	"crypto/tls"
-	"fmt"
-	"strings"
 
 	"github.com/Permify/permify-cli/core/config"
 	permify "github.com/Permify/permify-go/v1"
@@ -13,55 +11,37 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// New initializes a new permify client
+// New initializes a new permify client using stored credentials if configured
 func New(endpoint string) (*permify.Client, error) {
-	clientConfig := config.CliConfig
-	if endpoint != "" {
-		clientConfig.PermifyURL = endpoint
-		clientConfig.SslEnabled = strings.HasPrefix(endpoint, "https")
+	if endpoint == "" && config.CliConfig.PermifyURL != "" {
+		endpoint = config.CliConfig.PermifyURL
 	}
 
-	options := []grpc.DialOption{}
-	if clientConfig.SslEnabled {
-		transportCredentials, err := tlsCredentials(clientConfig)
+	var dialOpts []grpc.DialOption
+	if config.CliConfig.CertPath != "" && config.CliConfig.CertKey != "" {
+		cert, err := tls.LoadX509KeyPair(config.CliConfig.CertPath, config.CliConfig.CertKey)
 		if err != nil {
 			return nil, err
 		}
-		options = append(options, grpc.WithTransportCredentials(transportCredentials))
-	} else {
-		options = append(options, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	if clientConfig.Token != "" {
-		token := map[string]string{"authorization": fmt.Sprintf("Bearer %s", clientConfig.Token)}
-		if clientConfig.SslEnabled {
-			options = append(options, grpc.WithPerRPCCredentials(secureTokenCredentials(token)))
-		} else {
-			options = append(options, grpc.WithPerRPCCredentials(nonSecureTokenCredentials(token)))
+		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+	} else if config.CliConfig.CertPath != "" {
+		transportCreds, err := credentials.NewClientTLSFromFile(config.CliConfig.CertPath, "")
+		if err != nil {
+			return nil, err
 		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(transportCreds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	client, err := permify.NewClient(
-		permify.Config{
-			Endpoint: clientConfig.PermifyURL,
-		},
-		options...,
-	)
+	cfg := permify.Config{
+		Endpoint: endpoint,
+	}
+	if config.CliConfig.Token != "" {
+		cfg.Token = config.CliConfig.Token
+	}
+
+	client, err := permify.NewClient(cfg, dialOpts...)
 	return client, err
-}
-
-func tlsCredentials(clientConfig config.CoreConfig) (credentials.TransportCredentials, error) {
-	tlsConfig := &tls.Config{}
-	if clientConfig.CertificatePath == "" && clientConfig.CertificateKeyPath == "" {
-		return credentials.NewTLS(tlsConfig), nil
-	}
-	if clientConfig.CertificatePath == "" || clientConfig.CertificateKeyPath == "" {
-		return nil, fmt.Errorf("both certificate_path and certificate_key_path are required when configuring client certificates")
-	}
-	cert, err := tls.LoadX509KeyPair(clientConfig.CertificatePath, clientConfig.CertificateKeyPath)
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig.Certificates = []tls.Certificate{cert}
-	return credentials.NewTLS(tlsConfig), nil
 }
