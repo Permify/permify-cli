@@ -25,9 +25,33 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	SslEnabled bool   `yaml:"-"`
+}
+
+// Validate checks whether the stored credential configuration is valid
+func (c CoreConfig) Validate() error {
+	if strings.TrimSpace(c.PermifyURL) == "" {
+		return fmt.Errorf("permify endpoint cannot be empty")
+	}
+	hasCert := strings.TrimSpace(c.CertPath) != ""
+	hasKey := strings.TrimSpace(c.CertKey) != ""
+	if hasCert != hasKey {
+		return fmt.Errorf("both cert_path and cert_key must be provided when configuring TLS client certificates")
+	}
+	if hasCert {
+		if _, err := os.Stat(c.CertPath); err != nil {
+			return fmt.Errorf("certificate file %q is not accessible: %w", c.CertPath, err)
+		}
+		if _, err := os.Stat(c.CertKey); err != nil {
+			return fmt.Errorf("certificate key file %q is not accessible: %w", c.CertKey, err)
+		}
+	}
+	return nil
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -70,7 +94,9 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	CliConfig.SslEnabled = strings.HasPrefix(strings.ToLower(CliConfig.PermifyURL), "https") ||
+		strings.HasPrefix(strings.ToLower(CliConfig.PermifyURL), "grpcs") ||
+		(CliConfig.CertPath != "" && CliConfig.CertKey != "")
 	return err
 }
 
@@ -84,7 +110,7 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +126,6 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
