@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -23,11 +24,40 @@ type ProfileConfigs struct {
 	Profile string
 }
 
-// CoreConfig is the config struct
+// CoreConfig is the config struct storing endpoint, tenant, token, cert path, and cert key
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	SslEnabled bool   `yaml:"-"`
+}
+
+// GetStoredCredentials retrieves and validates the stored credentials from CliConfig.
+func GetStoredCredentials(endpointOverride string) (CoreConfig, error) {
+	cfg := CliConfig
+	if strings.TrimSpace(endpointOverride) != "" {
+		cfg.PermifyURL = strings.TrimSpace(endpointOverride)
+	}
+	if strings.TrimSpace(cfg.PermifyURL) == "" {
+		return cfg, errors.New("permify endpoint is missing from configuration")
+	}
+	if cfg.CertKey != "" && cfg.CertPath == "" {
+		return cfg, errors.New("cert_path must be provided when cert_key is configured")
+	}
+	if cfg.CertPath != "" {
+		if _, err := os.Stat(cfg.CertPath); err != nil {
+			return cfg, fmt.Errorf("certificate file %s is not accessible: %w", cfg.CertPath, err)
+		}
+	}
+	if cfg.CertKey != "" {
+		if _, err := os.Stat(cfg.CertKey); err != nil {
+			return cfg, fmt.Errorf("certificate key file %s is not accessible: %w", cfg.CertKey, err)
+		}
+	}
+	cfg.SslEnabled = strings.HasPrefix(cfg.PermifyURL, "https") || cfg.CertPath != ""
+	return cfg, nil
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -70,7 +100,7 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https") || CliConfig.CertPath != ""
 	return err
 }
 
@@ -84,7 +114,7 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +130,6 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
