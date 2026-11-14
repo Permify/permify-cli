@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -23,11 +24,43 @@ type ProfileConfigs struct {
 	Profile string
 }
 
-// CoreConfig is the config struct
+// CoreConfig is the config struct storing endpoint, tenant, token, cert path, and cert key
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	SslEnabled bool   `yaml:"-"`
+}
+
+// Validate checks if the stored credentials and certificate paths are valid
+func (c CoreConfig) Validate() error {
+	if strings.TrimSpace(c.PermifyURL) == "" {
+		return errors.New("permify url is empty")
+	}
+	if c.CertKey != "" && c.CertPath == "" {
+		return errors.New("cert_path is required when cert_key is provided")
+	}
+	if c.CertPath != "" {
+		if _, err := os.Stat(c.CertPath); err != nil {
+			return fmt.Errorf("cert_path file %s does not exist or is not accessible: %w", c.CertPath, err)
+		}
+	}
+	if c.CertKey != "" {
+		if _, err := os.Stat(c.CertKey); err != nil {
+			return fmt.Errorf("cert_key file %s does not exist or is not accessible: %w", c.CertKey, err)
+		}
+	}
+	return nil
+}
+
+// GetCredentials retrieves the active profile's stored credentials from CliConfig
+func GetCredentials() (CoreConfig, error) {
+	if err := CliConfig.Validate(); err != nil {
+		return CoreConfig{}, err
+	}
+	return CliConfig, nil
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -44,11 +77,15 @@ func IsConfigured(file string, profile string) error {
 	if err != nil {
 		logger.Log.Fatal("Error unmarshaling yaml")
 	}
-	if profileConfigs.Configs[profile].PermifyURL == "" {
+	cfg, ok := profileConfigs.Configs[profile]
+	if !ok || cfg.PermifyURL == "" {
 		return fmt.Errorf("permify url is empty for profile %s", profile)
 	}
-	if profileConfigs.Configs[profile].Tenant == "" {
+	if cfg.Tenant == "" {
 		return fmt.Errorf("tenant is empty for profile %s", profile)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid credentials for profile %s: %w", profile, err)
 	}
 	return nil
 }
@@ -65,13 +102,13 @@ func Load(file string, profile string) error {
 	}
 	err = yaml.Unmarshal(data, &profileConfigs.Configs)
 	if err != nil {
-		logger.Log.Fatal("Error unmarshaling yaml")
+		return fmt.Errorf("error unmarshaling yaml: %w", err)
 	}
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
-	return err
+	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https") || CliConfig.CertPath != ""
+	return nil
 }
 
 // New initializes a new config file for permctl with the mentioned profile
@@ -84,7 +121,7 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +137,6 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
