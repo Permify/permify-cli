@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Permify/permify-cli/core/config"
 	"github.com/Permify/permify-cli/core/logger"
@@ -46,6 +47,10 @@ func New(name, shortDescription, defaultConfigPath string) *Cli {
 	c.Cmd.PersistentFlags().String("config", defaultConfigPath, fmt.Sprintf("%s config file", c.Name))
 	c.Cmd.PersistentFlags().String("profile", "default", "profile name for config")
 	c.Cmd.PersistentFlags().String("schema", "", "schema version to use")
+	c.Cmd.PersistentFlags().String("endpoint", "", "permify gRPC endpoint")
+	c.Cmd.PersistentFlags().String("token", "", "permify auth token")
+	c.Cmd.PersistentFlags().String("cert-path", "", "path to TLS certificate file")
+	c.Cmd.PersistentFlags().String("cert-key", "", "path to TLS certificate key file")
 
 	return c
 }
@@ -81,12 +86,41 @@ func initializeConfig(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		logger.Log.Fatal(err)
 	}
-	return nil
+	return applyRuntimeOverrides(cmd)
+}
+
+func applyRuntimeOverrides(cmd *cobra.Command) error {
+	endpoint, token, certPath, certKey := config.GetCredentials()
+
+	if flagEndpoint, err := cmd.Flags().GetString("endpoint"); err == nil && strings.TrimSpace(flagEndpoint) != "" {
+		endpoint = strings.TrimSpace(flagEndpoint)
+	}
+	if flagToken, err := cmd.Flags().GetString("token"); err == nil && strings.TrimSpace(flagToken) != "" {
+		token = strings.TrimSpace(flagToken)
+	}
+	if flagCertPath, err := cmd.Flags().GetString("cert-path"); err == nil && strings.TrimSpace(flagCertPath) != "" {
+		certPath = strings.TrimSpace(flagCertPath)
+	}
+	if flagCertKey, err := cmd.Flags().GetString("cert-key"); err == nil && strings.TrimSpace(flagCertKey) != "" {
+		certKey = strings.TrimSpace(flagCertKey)
+	}
+
+	config.CliConfig.PermifyURL = endpoint
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
+	config.CliConfig.SslEnabled = config.ComputeSslEnabled(
+		config.CliConfig.PermifyURL,
+		config.CliConfig.CertPath,
+		config.CliConfig.CertKey,
+	)
+
+	return config.CliConfig.Validate()
 }
 
 // Run - function to run on root cli command
 func (c Cli) Run(cmd *cobra.Command, _ []string) {
-	cmd.Help() 
+	cmd.Help()
 }
 
 // Execute - run the root command
@@ -97,4 +131,3 @@ func (c Cli) Execute() {
 		os.Exit(1)
 	}
 }
-
