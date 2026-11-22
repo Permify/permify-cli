@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Permify/permify-cli/core/client"
 	"github.com/Permify/permify-cli/core/config"
@@ -102,7 +103,39 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	resp, err := client.New(url)
+	token, err := tui.StringPrompt("enter permify auth token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter tls cert path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter tls cert key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	config.CliConfig.PermifyURL = strings.TrimSpace(url)
+	config.CliConfig.Token = strings.TrimSpace(token)
+	config.CliConfig.CertPath = strings.TrimSpace(certPath)
+	config.CliConfig.CertKey = strings.TrimSpace(certKey)
+	config.CliConfig.SslEnabled = config.ComputeSslEnabled(
+		config.CliConfig.PermifyURL,
+		config.CliConfig.CertPath,
+		config.CliConfig.CertKey,
+	)
+
+	if err := config.CliConfig.Validate(); err != nil {
+		return err
+	}
+
+	resp, err := client.New(config.CliConfig.PermifyURL)
+	if err != nil {
+		return err
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,12 +150,11 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
-	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
 	err = config.Write()
 	if err != nil {
