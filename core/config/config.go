@@ -18,16 +18,50 @@ var profileConfigs = ProfileConfigs{}
 
 // ProfileConfigs stores configs for all profiles
 type ProfileConfigs struct {
-	Configs map[string]CoreConfig
-	File    string
-	Profile string
+	Configs map[string]CoreConfig `yaml:",inline"`
+	File    string                `yaml:"-"`
+	Profile string                `yaml:"-"`
 }
 
-// CoreConfig is the config struct
+// CoreConfig is the config struct storing connection parameters and credentials
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
-	SslEnabled           bool    `yaml:"-"`
+	PermifyURL string `yaml:"permify_url,omitempty"`
+	Endpoint   string `yaml:"endpoint,omitempty"`
+	Tenant     string `yaml:"tenant"`
+	Token      string `yaml:"token,omitempty"`
+	CertPath   string `yaml:"cert_path,omitempty"`
+	CertKey    string `yaml:"cert_key,omitempty"`
+	Insecure   bool   `yaml:"insecure,omitempty"`
+	SslEnabled bool   `yaml:"-"`
+}
+
+// GetEndpoint returns the resolved endpoint URL (checking Endpoint then PermifyURL)
+func (c *CoreConfig) GetEndpoint() string {
+	if c.Endpoint != "" {
+		return c.Endpoint
+	}
+	return c.PermifyURL
+}
+
+// SetEndpoint sets both Endpoint and PermifyURL for compatibility
+func (c *CoreConfig) SetEndpoint(endpoint string) {
+	c.Endpoint = endpoint
+	c.PermifyURL = endpoint
+}
+
+// ValidateCredentials verifies that configured credential files exist and are accessible
+func (c *CoreConfig) ValidateCredentials() error {
+	if c.CertPath != "" {
+		if _, err := os.Stat(c.CertPath); err != nil {
+			return fmt.Errorf("cert_path '%s' is not accessible: %w", c.CertPath, err)
+		}
+	}
+	if c.CertKey != "" {
+		if _, err := os.Stat(c.CertKey); err != nil {
+			return fmt.Errorf("cert_key '%s' is not accessible: %w", c.CertKey, err)
+		}
+	}
+	return nil
 }
 
 // IsConfigured checks if permctl cli has been configured
@@ -44,10 +78,14 @@ func IsConfigured(file string, profile string) error {
 	if err != nil {
 		logger.Log.Fatal("Error unmarshaling yaml")
 	}
-	if profileConfigs.Configs[profile].PermifyURL == "" {
-		return fmt.Errorf("permify url is empty for profile %s", profile)
+	cfg, ok := profileConfigs.Configs[profile]
+	if !ok {
+		return fmt.Errorf("profile %s not found in config", profile)
 	}
-	if profileConfigs.Configs[profile].Tenant == "" {
+	if cfg.PermifyURL == "" && cfg.Endpoint == "" {
+		return fmt.Errorf("permify url / endpoint is empty for profile %s", profile)
+	}
+	if cfg.Tenant == "" {
 		return fmt.Errorf("tenant is empty for profile %s", profile)
 	}
 	return nil
@@ -70,7 +108,12 @@ func Load(file string, profile string) error {
 	profileConfigs.File = file
 	profileConfigs.Profile = profile
 	CliConfig = profileConfigs.Configs[profile]
-	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https")
+	if CliConfig.PermifyURL == "" && CliConfig.Endpoint != "" {
+		CliConfig.PermifyURL = CliConfig.Endpoint
+	} else if CliConfig.Endpoint == "" && CliConfig.PermifyURL != "" {
+		CliConfig.Endpoint = CliConfig.PermifyURL
+	}
+	CliConfig.SslEnabled = strings.HasPrefix(CliConfig.PermifyURL, "https") || CliConfig.CertPath != ""
 	return err
 }
 
@@ -84,7 +127,8 @@ func New(file string, profile string) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0644))
+	// Store with restricted 0600 permissions to protect tokens and private keys
+	err = os.WriteFile(file, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
 
@@ -100,6 +144,7 @@ func Write() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0644))
+	// Store with restricted 0600 permissions to protect tokens and private keys
+	err = os.WriteFile(profileConfigs.File, newConfigDataByte, fs.FileMode(0600))
 	return err
 }
