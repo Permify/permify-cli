@@ -25,8 +25,11 @@ type ProfileConfigs struct {
 
 // CoreConfig is the config struct
 type CoreConfig struct {
-	PermifyURL			 string  `yaml:"permify_url"`
-	Tenant 				 string  `yaml:"tenant"`
+	PermifyURL           string  `yaml:"permify_url"`
+	Tenant               string  `yaml:"tenant"`
+	Token                string  `yaml:"token,omitempty"`
+	CertPath             string  `yaml:"cert_path,omitempty"`
+	CertKey              string  `yaml:"cert_key,omitempty"`
 	SslEnabled           bool    `yaml:"-"`
 }
 

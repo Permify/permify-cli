@@ -47,6 +47,7 @@ func New(name, shortDescription, defaultConfigPath string) *Cli {
 	c.Cmd.PersistentFlags().String("profile", "default", "profile name for config")
 	c.Cmd.PersistentFlags().String("schema", "", "schema version to use")
 
+
 	return c
 }
 

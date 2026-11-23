@@ -15,12 +15,15 @@ import (
 
 // ConfigureCmd provides the configure command on permctl
 func ConfigureCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:              "configure",
 		Short:            "configure permctl",
 		PersistentPreRun: persistentPreRun,
 		RunE:             runE,
 	}
+
+
+	return cmd
 }
 
 func persistentPreRun(cmd *cobra.Command, args []string) {
@@ -102,7 +105,30 @@ func runE(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	token, err := tui.StringPrompt("enter permify token (optional)", "", config.CliConfig.Token)
+	if err != nil {
+		return err
+	}
+
+	certPath, err := tui.StringPrompt("enter certificate path (optional)", "", config.CliConfig.CertPath)
+	if err != nil {
+		return err
+	}
+
+	certKey, err := tui.StringPrompt("enter certificate key path (optional)", "", config.CliConfig.CertKey)
+	if err != nil {
+		return err
+	}
+
+	config.CliConfig.PermifyURL = url
+	config.CliConfig.Token = token
+	config.CliConfig.CertPath = certPath
+	config.CliConfig.CertKey = certKey
+
 	resp, err := client.New(url)
+	if err != nil {
+		return err
+	}
 
 	// Todo: Implement pagination
 	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
@@ -117,12 +143,11 @@ func runE(cmd *cobra.Command, _ []string) error {
 		tenantNames = append(tenantNames, nameID)
 		tenantIds[nameID] = tenant.Id
 	}
-	
+
 	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
 	if err != nil {
 		logger.Log.Error(err)
 	}
-	config.CliConfig.PermifyURL = url
 	config.CliConfig.Tenant = tenantIds[tenant]
 	err = config.Write()
 	if err != nil {
