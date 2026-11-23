@@ -1,5 +1,5 @@
 -   [ ] Implement pagination on list calls in tui
--   [ ] TLS certificate implementation on gprc client
+-   [x] TLS certificate and credentials storage implementation on grpc client
 -   [ ] Refactor data read interface
 -   [ ] Add and improve comments
--   [ ] Add tests
+-   [x] Add tests

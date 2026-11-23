@@ -26,3 +26,8 @@ go.work
 
 dist/**
 permctl
+
+# Python and pytest
+__pycache__/
+*.py[cod]
+.pytest_cache/

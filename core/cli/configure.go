@@ -15,12 +15,20 @@ import (
 
 // ConfigureCmd provides the configure command on permctl
 func ConfigureCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:              "configure",
 		Short:            "configure permctl",
 		PersistentPreRun: persistentPreRun,
 		RunE:             runE,
 	}
+	cmd.Flags().String("url", "", "permify server URL or endpoint")
+	cmd.Flags().String("endpoint", "", "alias for --url")
+	cmd.Flags().String("tenant", "", "default tenant ID")
+	cmd.Flags().String("token", "", "bearer authentication token")
+	cmd.Flags().String("cert-path", "", "path to TLS certificate or CA bundle")
+	cmd.Flags().String("cert-key", "", "path to TLS private key")
+	cmd.Flags().Bool("insecure", false, "disable TLS verification")
+	return cmd
 }
 
 func persistentPreRun(cmd *cobra.Command, args []string) {
@@ -97,36 +105,79 @@ func validateFlags(cmd *cobra.Command, args []string) error {
 func runE(cmd *cobra.Command, _ []string) error {
 	configFile, _ := cmd.Flags().GetString("config")
 
-	url, err := tui.StringPrompt("enter permify url", "", config.CliConfig.PermifyURL)
-	if err != nil {
+	url, _ := cmd.Flags().GetString("url")
+	if url == "" {
+		url, _ = cmd.Flags().GetString("endpoint")
+	}
+	if url == "" {
+		var err error
+		url, err = tui.StringPrompt("enter permify url", "", config.CliConfig.GetEndpoint())
+		if err != nil {
+			return err
+		}
+	}
+
+	token, _ := cmd.Flags().GetString("token")
+	certPath, _ := cmd.Flags().GetString("cert-path")
+	certKey, _ := cmd.Flags().GetString("cert-key")
+	insecure, _ := cmd.Flags().GetBool("insecure")
+	tenantFlag, _ := cmd.Flags().GetString("tenant")
+
+	config.CliConfig.SetEndpoint(url)
+	if token != "" {
+		config.CliConfig.Token = token
+	}
+	if certPath != "" {
+		config.CliConfig.CertPath = certPath
+	}
+	if certKey != "" {
+		config.CliConfig.CertKey = certKey
+	}
+	if insecure {
+		config.CliConfig.Insecure = true
+	}
+
+	// Validate credentials accessibility before connecting or saving
+	if err := config.CliConfig.ValidateCredentials(); err != nil {
+		logger.Log.Error(err)
 		return err
 	}
 
-	resp, err := client.New(url)
+	// If tenant was passed directly via flag, use it; otherwise discover tenants via API
+	if tenantFlag != "" {
+		config.CliConfig.Tenant = tenantFlag
+	} else {
+		resp, err := client.New(url)
+		if err != nil {
+			logger.Log.Error("failed to create client: ", err)
+			return err
+		}
 
-	// Todo: Implement pagination
-	tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
-	if err != nil {
-		logger.Log.Fatal(err)
+		// Todo: Implement pagination
+		tenants, err := resp.Tenancy.List(context.Background(), &v1.TenantListRequest{})
+		if err != nil {
+			logger.Log.Fatal(err)
+		}
+
+		tenantNames := []string{}
+		tenantIds := map[string]string{}
+		for _, tenant := range tenants.Tenants {
+			nameID := fmt.Sprintf("%s {%s}", tenant.Name, tenant.Id)
+			tenantNames = append(tenantNames, nameID)
+			tenantIds[nameID] = tenant.Id
+		}
+
+		tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+		if err != nil {
+			logger.Log.Error(err)
+		}
+		config.CliConfig.Tenant = tenantIds[tenant]
 	}
 
-	tenantNames := []string{}
-	tenantIds := map[string]string{}
-	for _, tenant := range tenants.Tenants {
-		nameID := fmt.Sprintf("%s {%s}", tenant.Name, tenant.Id)
-		tenantNames = append(tenantNames, nameID)
-		tenantIds[nameID] = tenant.Id
-	}
-	
-	tenant, err := tui.Choice("Select a tenant: ", tenantNames)
+	err := config.Write()
 	if err != nil {
 		logger.Log.Error(err)
-	}
-	config.CliConfig.PermifyURL = url
-	config.CliConfig.Tenant = tenantIds[tenant]
-	err = config.Write()
-	if err != nil {
-		logger.Log.Error(err)
+		return err
 	}
 	logger.Log.Info("successfully configured ", "config file", configFile)
 	return nil
